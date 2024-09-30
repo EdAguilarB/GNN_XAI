@@ -14,6 +14,13 @@ class BaseOptions:
         ###########################################
 
         self.parser.add_argument(
+            '--exp_name',
+            type=str,
+            default='exp1',
+            help='Name of the experiment',
+            )
+
+        self.parser.add_argument(
             '--train', 
             type=self.str2bool,
             nargs='?', 
@@ -74,7 +81,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--lr',
             type=float,
-            default=0.01,
+            default=0.0001,
             help='Learning rate',
             )
         
@@ -109,7 +116,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--n_classes',
             type=int,
-            default=1,
+            default=2,
             help='Number of classes in the target variable',
             )
         
@@ -139,6 +146,20 @@ class BaseOptions:
             type=int,
             default=False,
             help='To include biases in GCNConv or not',
+            )
+        
+        self.parser.add_argument(
+            '--batch_size',
+            type=float,
+            default=64,
+            help='Dropout rate',
+            )
+        
+        self.parser.add_argument(
+            '--epochs',
+            type=int,
+            default=100,
+            help='Number of epochs',
             )
         
         self.parser.add_argument(
