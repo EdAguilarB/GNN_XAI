@@ -1,7 +1,6 @@
 import torch
 import argparse
 import torch.nn as nn
-import numpy as np
 from torch_geometric.seed import seed_everything
 
 
@@ -17,6 +16,8 @@ class BaseNetwork(nn.Module):
         self.n_convolutions = opt.n_convolutions
         self.embedding_dim = opt.embedding_dim  
         self.readout_layers = opt.readout_layers
+        self.problem_type = opt.problem_type
+        self.num_classes = opt.n_classes
         self._seed_everything(opt.global_seed)
 
     def forward(self):
@@ -26,13 +27,13 @@ class BaseNetwork(nn.Module):
     def name(self):
         return self._name
     
-    def _make_loss(self, problem_type, mae=None):
-        if problem_type == "classification":
+    def _make_loss(self,  mae=None):
+        if self.problem_type == "classification":
             self.loss = nn.CrossEntropyLoss()
-        elif problem_type == "regression" and mae is None:
+        elif self.problem_type == "regression" and mae is None:
             self.loss = nn.MSELoss()
         else:
-            raise ValueError(f"Problem type {problem_type} not supported")
+            raise ValueError(f"Problem type {self.problem_type} not supported")
         
     def _make_optimizer(self, optimizer, lr):
         if optimizer == "Adam":
