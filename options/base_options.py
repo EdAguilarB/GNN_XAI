@@ -57,6 +57,96 @@ class BaseOptions:
             help='Name of the column with the set information',
             )
         
+        self.parser.add_argument(
+            '--problem_type',
+            type=str,
+            default='classification',
+            help='Type of problem to solve',
+            )
+        
+        self.parser.add_argument(
+            '--optimizer',
+            type=str,
+            default='Adam',
+            help='Type of optimizer',
+            )
+        
+        self.parser.add_argument(
+            '--lr',
+            type=float,
+            default=0.01,
+            help='Learning rate',
+            )
+        
+        self.parser.add_argument(
+            '--scheduler',
+            type=str,
+            default='ReduceLROnPlateau',
+            help='Type of scheduler',
+            )
+        
+        self.parser.add_argument(
+            '--step_size',
+            type=int,
+            default=7,
+            help='Step size for the scheduler',
+            )
+        
+        self.parser.add_argument(
+            '--gamma',
+            type=float,
+            default=0.7,
+            help='Factor for the scheduler',
+            )
+        
+        self.parser.add_argument(
+            '--min_lr',
+            type=float,
+            default=1e-08,
+            help='Minimum learning rate for the scheduler',
+            )
+        
+        self.parser.add_argument(
+            '--n_classes',
+            type=int,
+            default=1,
+            help='Number of classes in the target variable',
+            )
+        
+        self.parser.add_argument(
+            '--n_convolutions',
+            type=int,
+            default=3,
+            help='Number of classes in the target variable',
+            )  
+        
+        self.parser.add_argument(
+            '--embedding_dim',
+            type=int,
+            default=128,
+            help='Number of classes in the target variable',
+            )  
+        
+        self.parser.add_argument(
+            '--readout_layers',
+            type=int,
+            default=2,
+            help='Number of classes in the target variable',
+            )  
+        
+        self.parser.add_argument(
+            '--improved',
+            type=int,
+            default=False,
+            help='To include biases in GCNConv or not',
+            )
+        
+        self.parser.add_argument(
+            '--global_seed',
+            type=int,
+            default=42,
+            help='Seed for the random number generator',
+            )
 
     
 
