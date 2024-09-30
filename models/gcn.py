@@ -43,7 +43,7 @@ class GCN(BaseNetwork):
         self.readout.append(nn.Linear(graph_embedding, self._n_classes))
         
         
-        self._make_loss(opt.problem_type)
+        self._make_loss()
         self._make_optimizer(opt.optimizer, opt.lr)
         self._make_scheduler(scheduler=opt.scheduler, step_size = opt.step_size, gamma = opt.gamma, min_lr=opt.min_lr)
         

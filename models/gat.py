@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from models.networks import BaseNetwork
-from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, GATConv, Linear
+from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, GATConv
 import argparse
 
 
@@ -13,7 +13,7 @@ class GAT(BaseNetwork):
         self._name = "GAT"
 
         # linear expansion of node features
-        self.linear = Linear(n_node_features, self.embedding_dim)
+        self.linear = nn.Linear(n_node_features, self.embedding_dim)
 
         #Convolutions
         self.conv_layers = nn.ModuleList([])
@@ -42,7 +42,7 @@ class GAT(BaseNetwork):
         self.readout.append(nn.Linear(graph_embedding, self._n_classes))
         
         
-        self._make_loss(opt.problem_type)
+        self._make_loss()
         self._make_optimizer(opt.optimizer, opt.lr)
         self._make_scheduler(scheduler=opt.scheduler, step_size = opt.step_size, gamma = opt.gamma, min_lr=opt.min_lr)
         
