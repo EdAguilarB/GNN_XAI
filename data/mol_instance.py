@@ -38,7 +38,7 @@ class molecular_graph(mol_graph_dataset):
         self.data = pd.read_csv(self.raw_paths[0]).reset_index()
 
         # iterates over the rows of the dataframe
-        for index, reaction in tqdm(self.data.iterrows(), total=self.data.shape[0]):
+        for index, mols in tqdm(self.data.iterrows(), total=self.data.shape[0]):
 
             # initialize the node features for the molecule
             node_feats_mols = None
@@ -49,7 +49,7 @@ class molecular_graph(mol_graph_dataset):
             for reactant in self.mol_cols:  
 
                 #create a molecule object from the smiles string
-                smiles = Chem.MolToSmiles(Chem.MolFromSmiles(reaction[reactant]), canonical=True)
+                smiles = Chem.MolToSmiles(Chem.MolFromSmiles(mols[reactant]), canonical=True)
                 smiles_list.append(smiles)
 
                 mol = Chem.MolFromSmiles(smiles)
@@ -69,8 +69,8 @@ class molecular_graph(mol_graph_dataset):
                     edge_index += max(edge_index_mols[0]) + 1
                     edge_index_mols = torch.cat([edge_index_mols, edge_index], axis=1)
 
-            y = torch.tensor(reaction[self._opt.target_variable]).reshape(1)
-            set = reaction[self._opt.set_col]
+            y = torch.tensor(mols[self._opt.target_variable]).reshape(1)
+            set = mols[self._opt.set_col]
 
             data = Data(x=node_feats_mols, 
                         edge_index=edge_index_mols, 
@@ -83,7 +83,7 @@ class molecular_graph(mol_graph_dataset):
             
             torch.save(data, 
                        os.path.join(self.processed_dir, 
-                                    f'reaction_{index}.pt'))
+                                    f'mol_{index}.pt'))
     
 
     def _get_node_feats(self, mol):
