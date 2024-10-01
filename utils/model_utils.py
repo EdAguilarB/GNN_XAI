@@ -158,6 +158,15 @@ def network_report(exp_name,
     for name, value in zip(metrics_names, metrics):
         file1.write("{} = {:.3f}\n".format(name, value))
 
+
+    if model.problem_type == 'classification':
+        #plot_confusion_matrix(y_true, y_pred, log_dir)
+        mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
+        if len(mispredicted) > 0:
+            file1.write("Mispredicted instances in train set:\n")
+            for index in mispredicted:
+                file1.write("Mispredicted index = {}. Real Value: {}. Predicted Value: {}.\n".format(idx[index], y_true[index], y_pred[index]))
+
     
     #file1.write("***************\n")
     #y_pred, y_true, idx, emb_val = predict_network(model, val_loader, True)
