@@ -1,9 +1,11 @@
 import torch
-from torch_geometric.explain import Explainer, GNNExplainer, CaptumExplainer, PGExplainer
 from torch_geometric.loader import DataLoader
-from options.base_options import BaseOptions
 import json
-from tqdm import tqdm
+import numpy as np
+from rdkit import Chem
+import random
+from options.base_options import BaseOptions
+from utils.XAI_utils import calculate_attributions
 from icecream import ic
 
 
@@ -13,104 +15,86 @@ def run():
     opt = BaseOptions()
     opt = opt.parse()
 
-    # Set the device
-    device = torch.device("cpu")
+    random.seed(opt.global_seed)
 
     # Load the dataset and model from experiment
     exp_dir = '3MR/graphsage'
-    train_loader = DataLoader(torch.load("{}/train_loader.pth".format(exp_dir)).dataset)
-    test_loader = DataLoader(torch.load("{}/test_loader.pth".format(exp_dir)).dataset)
-    model = torch.load("{}/model.pth".format(exp_dir))
+    train_loader = DataLoader(torch.load("{}/train_loader.pth".format(exp_dir)).dataset[:50])
+    test_loader = DataLoader(torch.load("{}/test_loader.pth".format(exp_dir)).dataset[:10])
 
 
-    algorithms = [GNNExplainer(), 
-                  CaptumExplainer('IntegratedGradients'), 
-                  CaptumExplainer('Saliency'),
-                  CaptumExplainer('InputXGradient'),
-                  CaptumExplainer('Deconvolution'),
-                  CaptumExplainer('ShapleyValueSampling'),
-                  CaptumExplainer('GuidedBackprop'),
-                  ]
-    
-    algorithms_names = ['GNNExplainer',
-                        'IntegratedGradients',
-                        'Saliency',
-                        'InputXGradient',
-                        'Deconvolution',
-                        'ShapleyValueSampling',
-                        'GuidedBackprop',
-                        ]
+    #calculate_attributions(opt, train_loader)
+
+    with open('node_masks_test.json') as f:
+        data = json.load(f)
+
     
 
-    node_masks = {}
+    mol_attrs = {}
     
-    for mol in test_loader:
-
-        smiles = mol.smiles[0]
-        algo_dict = {}
-
-        for name, algorithm in zip(algorithms_names, algorithms):
-            model = torch.load("{}/model.pth".format(exp_dir))
-            # Initialize the explainer
-            explainer = Explainer(
-                model=model,
-                algorithm=algorithm,
-                explanation_type='model',
-                node_mask_type='attributes',
-                edge_mask_type='object',
-                model_config=dict(
-                    mode='multiclass_classification',
-                    task_level='graph',
-                    return_type='raw',
-                ),
-            )
-
-            explanation = explainer(x=mol.x, edge_index=mol.edge_index)
-            node_mask = explanation.node_mask
-
-            algo_dict[name] = node_mask.detach().numpy().tolist()
+    for outer_key, outer_value in data.items():
+        dir, mag = None, None
+        for inner_key, inner_value in outer_value.items():
+            value = np.array(inner_value)
+            value /= np.abs(np.max(value))
+            #ic(inner_key, value.shape)
+            if inner_key == 'GNNExplainer' or inner_key == 'Saliency':
+                if not isinstance(mag, np.ndarray):
+                    mag = value
+                else:
+                    mag += value
+            else:
+                if not isinstance(dir, np.ndarray):
+                    dir = value
+                else:
+                    dir += value
         
-        node_masks[smiles] = algo_dict
+        sign = np.sign(dir)
+        dir = np.abs(dir)
+        mag = dir + mag
+        mag = np.sum(mag, axis=1) # sum over the columns to get the overall importance of each atom
+        mag /= np.max(mag) # normalize the importance values from 0 to 1
+        #mag = mag * sign
 
+        mag = np.where(mag < 0.5, 0, 1) # thresholding to map atoms to either important or not 
 
-    with open('node_masks_test.json', 'w') as f:
-        json.dump(node_masks, f, indent=4)
+        mol_attrs[outer_key] = mag
 
-
-
-    node_masks = {}
     
-    for mol in train_loader:
+    pattern = Chem.MolFromSmarts('[*]1[*][*]1')
+    for smiles, attrs in mol_attrs.items():
+        mol = Chem.MolFromSmiles(smiles) 
+        matches = mol.GetSubstructMatches(pattern)
 
-        smiles = mol.smiles[0]
-        algo_dict = {}
+        acc = 0
 
-        for name, algorithm in zip(algorithms_names, algorithms):
-            model = torch.load("{}/model.pth".format(exp_dir))
-            # Initialize the explainer
-            explainer = Explainer(
-                model=model,
-                algorithm=algorithm,
-                explanation_type='model',
-                node_mask_type='attributes',
-                edge_mask_type='object',
-                model_config=dict(
-                    mode='multiclass_classification',
-                    task_level='graph',
-                    return_type='raw',
-                ),
-            )
+        indexes = set().union(*matches)
+        ic(indexes)
 
-            explanation = explainer(x=mol.x, edge_index=mol.edge_index)
-            node_mask = explanation.node_mask
 
-            algo_dict[name] = node_mask.detach().numpy().tolist()
+        for i, attr in enumerate(attrs):
+            ic(i, attr)
+            if attr == 1:
+                if i in indexes:
+                    acc += 1
+                elif i not in indexes:
+                    pass
+            elif attr == 0:
+                if i in indexes:
+                    pass
+                elif i not in indexes:
+                    acc += 1
+            
+            #ic(acc)
         
-        node_masks[smiles] = algo_dict
+        ic(acc)
+        ic(len(attrs))
+                    
+        ic(smiles, acc/len(attrs))
+        break
 
 
-    with open('node_masks_train.json', 'w') as f:
-        json.dump(node_masks, f, indent=4)
+
         
 
 if __name__ == '__main__':
