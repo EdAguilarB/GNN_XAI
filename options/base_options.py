@@ -51,6 +51,13 @@ class BaseOptions:
             )
         
         self.parser.add_argument(
+            '--smarts_col',
+            type=list,
+            default=['smarts'],
+            help='Columns containing the SMARTS of the ground truth fragment',
+            )
+        
+        self.parser.add_argument(
             '--target_variable',
             type=str,
             default='3MR',
