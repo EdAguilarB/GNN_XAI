@@ -44,13 +44,15 @@ class molecular_graph(mol_graph_dataset):
             node_feats_mols = None
 
             smiles_list = []
+            smarts_list = []
 
             # iterates over the molecules that modulate the target variable
-            for reactant in self.mol_cols:  
+            for molecule in self.mol_cols:  
 
                 #create a molecule object from the smiles string
-                smiles = Chem.MolToSmiles(Chem.MolFromSmiles(mols[reactant]), canonical=True)
+                smiles = Chem.MolToSmiles(Chem.MolFromSmiles(mols[molecule]), canonical=True)
                 smiles_list.append(smiles)
+                smarts_list.append(mols[self._opt.smarts_col])
 
                 mol = Chem.MolFromSmiles(smiles)
 
