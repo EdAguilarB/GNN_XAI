@@ -1,9 +1,11 @@
 import torch
+from torch_geometric.explain import Explainer, GNNExplainer, CaptumExplainer, PGExplainer
 from torch_geometric.loader import DataLoader
-from utils.model_utils import train_network, eval_network, network_report
-from data.mol_instance import molecular_graph
 from options.base_options import BaseOptions
-from call_methods import make_network
+import json
+from tqdm import tqdm
+from icecream import ic
+
 
 def run():
 
@@ -12,57 +14,104 @@ def run():
     opt = opt.parse()
 
     # Set the device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
 
-    # Load the dataset
-    mols = molecular_graph(opt = opt, filename = '3MR.csv', root = 'data/datasets/3MR')
-
-    # Make the network
-    model = make_network(network_name='graphsage', 
-                         opt=opt, 
-                         n_node_features=mols.num_node_features, 
-                         n_edge_features=mols.num_edge_features).to(device)
-
-    train_set = []
-    test_set = []
-
-    for mol in mols:
-        if mol.set == 'train':
-            train_set.append(mol)
-        elif mol.set == 'test':
-            test_set.append(mol)
+    # Load the dataset and model from experiment
+    exp_dir = '3MR/graphsage'
+    train_loader = DataLoader(torch.load("{}/train_loader.pth".format(exp_dir)).dataset)
+    test_loader = DataLoader(torch.load("{}/test_loader.pth".format(exp_dir)).dataset)
+    model = torch.load("{}/model.pth".format(exp_dir))
 
 
-    # Make the dataloaders
-    train_set = DataLoader(train_set, batch_size=opt.batch_size, shuffle=True)
-    test_set = DataLoader(test_set, batch_size=opt.batch_size, shuffle=False)
+    algorithms = [GNNExplainer(), 
+                  CaptumExplainer('IntegratedGradients'), 
+                  CaptumExplainer('Saliency'),
+                  CaptumExplainer('InputXGradient'),
+                  CaptumExplainer('Deconvolution'),
+                  CaptumExplainer('ShapleyValueSampling'),
+                  CaptumExplainer('GuidedBackprop'),
+                  ]
     
-    train_list,  test_list = [], []
+    algorithms_names = ['GNNExplainer',
+                        'IntegratedGradients',
+                        'Saliency',
+                        'InputXGradient',
+                        'Deconvolution',
+                        'ShapleyValueSampling',
+                        'GuidedBackprop',
+                        ]
+    
 
-    for epoch in range(1, opt.epochs+1):
+    node_masks = {}
+    
+    for mol in test_loader:
 
-        train_loss = train_network(model = model, 
-                                   train_loader=train_set, 
-                                   device=device)
-        
-        
-        test_loss = eval_network(model = model,
-                                loader=test_set,
-                                device=device)
-        
-        print('Epoch {:03d} | Train loss: {:.3f} | Test loss: {:.3f}'.format(epoch, train_loss, test_loss))
+        smiles = mol.smiles[0]
+        algo_dict = {}
 
-        train_list.append(train_loss)
-        test_list.append(test_loss)
-
-    network_report(
-                exp_name=mols.filename[:-4],
-                loaders=(train_set, test_set),
-                loss_lists=(train_list, test_list),
-                save_all=True,
+        for name, algorithm in zip(algorithms_names, algorithms):
+            model = torch.load("{}/model.pth".format(exp_dir))
+            # Initialize the explainer
+            explainer = Explainer(
                 model=model,
+                algorithm=algorithm,
+                explanation_type='model',
+                node_mask_type='attributes',
+                edge_mask_type='object',
+                model_config=dict(
+                    mode='multiclass_classification',
+                    task_level='graph',
+                    return_type='raw',
+                ),
             )
 
+            explanation = explainer(x=mol.x, edge_index=mol.edge_index)
+            node_mask = explanation.node_mask
+
+            algo_dict[name] = node_mask.detach().numpy().tolist()
+        
+        node_masks[smiles] = algo_dict
+
+
+    with open('node_masks_test.json', 'w') as f:
+        json.dump(node_masks, f, indent=4)
+
+
+
+    node_masks = {}
+    
+    for mol in train_loader:
+
+        smiles = mol.smiles[0]
+        algo_dict = {}
+
+        for name, algorithm in zip(algorithms_names, algorithms):
+            model = torch.load("{}/model.pth".format(exp_dir))
+            # Initialize the explainer
+            explainer = Explainer(
+                model=model,
+                algorithm=algorithm,
+                explanation_type='model',
+                node_mask_type='attributes',
+                edge_mask_type='object',
+                model_config=dict(
+                    mode='multiclass_classification',
+                    task_level='graph',
+                    return_type='raw',
+                ),
+            )
+
+            explanation = explainer(x=mol.x, edge_index=mol.edge_index)
+            node_mask = explanation.node_mask
+
+            algo_dict[name] = node_mask.detach().numpy().tolist()
+        
+        node_masks[smiles] = algo_dict
+
+
+    with open('node_masks_train.json', 'w') as f:
+        json.dump(node_masks, f, indent=4)
+        
 
 if __name__ == '__main__':
     run()
