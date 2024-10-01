@@ -21,7 +21,7 @@ class BaseOptions:
             )
 
         self.parser.add_argument(
-            '--train', 
+            '--train_GNN', 
             type=self.str2bool,
             nargs='?', 
             const=True, 
@@ -53,7 +53,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--target_variable',
             type=str,
-            default='label_full',
+            default='3MR',
             help='Name of the column with the target variable',
             )
         
@@ -62,6 +62,13 @@ class BaseOptions:
             type=str,
             default='splits',
             help='Name of the column with the set information',
+            )
+        
+        self.parser.add_argument(
+            '--id_col',
+            type=str,
+            default='index',
+            help='Column with the id of the molecules',
             )
         
         self.parser.add_argument(
@@ -161,7 +168,20 @@ class BaseOptions:
             default=100,
             help='Number of epochs',
             )
+
+        ###########################################
+        ########Options for explainability#########
+        ###########################################
+
+        self.parser.add_argument(
+            '--algorithm',
+            type=str,
+            default='GNNExplainer',
+            help='Algorithm to use for explainability',
+            )
         
+
+
         self.parser.add_argument(
             '--global_seed',
             type=int,

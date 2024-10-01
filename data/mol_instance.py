@@ -72,12 +72,17 @@ class molecular_graph(mol_graph_dataset):
             y = torch.tensor(mols[self._opt.target_variable]).reshape(1)
             set = mols[self._opt.set_col]
 
+            if self._opt.id_col:
+                id = mols[self._opt.id_col]
+            else:
+                id = index
+
             data = Data(x=node_feats_mols, 
                         edge_index=edge_index_mols, 
                         edge_attr=edge_attr_mols, 
                         y=y,
                         smiles = smiles,
-                        idx = index,
+                        idx = id,
                         set = set
                         ) 
             
