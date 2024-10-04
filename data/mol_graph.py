@@ -21,8 +21,8 @@ class mol_graph_dataset(Dataset):
         self._root = opt.root
         self._name = "BaseDataset"
         
-        
         super().__init__(root = self._root)
+        self.set = pd.read_csv(self.raw_paths[0])[opt.set_col]
         
 
     @property
@@ -39,20 +39,24 @@ class mol_graph_dataset(Dataset):
     def _elem_list(self):
         elements = [
             'H',  # Hydrogen (1)
+            'Li', # Lithium (3)
             'B',  # Boron (5)
             'C',  # Carbon (6)
             'N',  # Nitrogen (7)
             'O',  # Oxygen (8)
             'F',  # Fluorine (9)
+            'Na', # Sodium (11)
             'Si', # Silicon (14)
             'P',  # Phosphorus (15)
             'S',  # Sulfur (16)
             'Cl', # Chlorine (17)
+            'K',  # Potassium (19)
             'Se', # Selenium (34)
             'Br', # Bromine (35)
             'As', # Arsenic (33)
             'Ge', # Germanium (32)
             'Sn', # Tin (50)
+            'Sb', # Antimony (51)
             'I',  # Iodine (53)
         ]
         return elements

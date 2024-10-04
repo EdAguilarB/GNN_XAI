@@ -44,7 +44,7 @@ class graphsage(BaseNetwork):
         self._make_scheduler(scheduler=opt.scheduler, step_size = opt.step_size, gamma = opt.gamma, min_lr=opt.min_lr)
         
 
-    def forward(self,x=None, edge_index=None,  batch_index=None, edge_weight=None):
+    def forward(self,x=None, edge_index=None,  batch_index=None, edge_attr=None):
 
         x = self.linear(x)
         x = nn.ReLU()(x)

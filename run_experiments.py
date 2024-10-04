@@ -6,7 +6,7 @@ def run():
     opt = opt.parse()
 
     if opt.train_GNN:
-        train_model()
+        train_model(opt)
 
 
 if __name__ == '__main__':

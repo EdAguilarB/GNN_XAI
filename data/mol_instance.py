@@ -44,12 +44,13 @@ class molecular_graph(mol_graph_dataset):
             node_feats_mols = None
 
             smiles_list = []
+            smarts_list = []
 
             # iterates over the molecules that modulate the target variable
-            for reactant in self.mol_cols:  
+            for molecule in self.mol_cols:  
 
                 #create a molecule object from the smiles string
-                smiles = Chem.MolToSmiles(Chem.MolFromSmiles(mols[reactant]), canonical=True)
+                smiles = Chem.MolToSmiles(Chem.MolFromSmiles(mols[molecule]), canonical=True)
                 smiles_list.append(smiles)
 
                 mol = Chem.MolFromSmiles(smiles)
@@ -70,7 +71,12 @@ class molecular_graph(mol_graph_dataset):
                     edge_index_mols = torch.cat([edge_index_mols, edge_index], axis=1)
 
             y = torch.tensor(mols[self._opt.target_variable]).reshape(1)
-            set = mols[self._opt.set_col]
+            try:
+                smarts = Chem.MolToSmarts(Chem.MolFromSmarts(mols['smarts']))
+            except:
+                smarts = ''
+            
+
 
             if self._opt.id_col:
                 id = mols[self._opt.id_col]
@@ -82,13 +88,14 @@ class molecular_graph(mol_graph_dataset):
                         edge_attr=edge_attr_mols, 
                         y=y,
                         smiles = smiles,
-                        idx = id,
-                        set = set
+                        smarts = smarts,
+                        idx = str(id),
                         ) 
             
             torch.save(data, 
                        os.path.join(self.processed_dir, 
                                     f'mol_{index}.pt'))
+            
     
 
     def _get_node_feats(self, mol):
@@ -101,15 +108,24 @@ class molecular_graph(mol_graph_dataset):
             # Feature 1: Atomic number        
             node_feats += self._one_h_e(atom.GetSymbol(), self._elem_list)
             # Feature 2: Atom degree
-            node_feats += self._one_h_e(atom.GetDegree(), [1, 2, 3, 4])
+            node_feats += self._one_h_e(atom.GetDegree(), [0, 1, 2, 3, 4, 5, 6])
             # Feature 3: Formal Charge
             node_feats += self._one_h_e(atom.GetFormalCharge(), [-1, 0, 1])
             # Feature 4: Chirality
-            node_feats += self._one_h_e(atom.GetChiralTag(), [Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW, Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW, Chem.rdchem.ChiralType.CHI_UNSPECIFIED])
+            node_feats += self._one_h_e(atom.GetChiralTag(), [Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW, 
+                                                              Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW, 
+                                                              Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
+                                                              Chem.rdchem.ChiralType.CHI_OTHER])
             # Feature 5: Num Hs
             node_feats += self._one_h_e(atom.GetTotalNumHs(), [0, 1, 2, 3, 4])
             # Feature 6: Hybridization
-            node_feats += self._one_h_e(atom.GetHybridization(), [0,2,3,4])
+            node_feats += self._one_h_e(atom.GetHybridization(), [Chem.rdchem.HybridizationType.UNSPECIFIED,
+                                                                  Chem.rdchem.HybridizationType.S,
+                                                                  Chem.rdchem.HybridizationType.SP,
+                                                                  Chem.rdchem.HybridizationType.SP2,
+                                                                  Chem.rdchem.HybridizationType.SP3,
+                                                                  Chem.rdchem.HybridizationType.SP3D,
+                                                                  Chem.rdchem.HybridizationType.SP3D2])
             # Feature 7: Aromaticity
             node_feats += [atom.GetIsAromatic()]
             # Feature 8: In Ring

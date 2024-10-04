@@ -49,10 +49,10 @@ class GCN(BaseNetwork):
         
 
 
-    def forward(self,x=None, edge_index=None, edge_attr = None, batch_index=None, edge_weight=None):
+    def forward(self,x=None, edge_index=None, batch_index=None, edge_attr=None):
 
 
-        x = self.conv1(x, edge_index, edge_weight)
+        x = self.conv1(x, edge_index)
         x = self.relu1(x)
 
         for i in range(self.n_convolutions-1):

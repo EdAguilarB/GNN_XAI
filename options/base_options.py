@@ -16,7 +16,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--exp_name',
             type=str,
-            default='exp1',
+            default='results',
             help='Name of the experiment',
             )
 
@@ -32,42 +32,49 @@ class BaseOptions:
         self.parser.add_argument(
             '--filename',
             type=str,
-            default='3MR.csv',
+            default='CYP3A4.csv',
             help='name of the csv file',
             )
         
         self.parser.add_argument(
             '--root',
             type=str,
-            default='data/datasets/3MR',
+            default='data/datasets/CYP3A4',
             help='root directory of the dataset',
             )
         
         self.parser.add_argument(
             '--mol_cols',
             type=list,
-            default=['SMILES'],
+            default=['smiles'],
             help='Columns containing the SMILES of the molecules',
+            )
+        
+        self.parser.add_argument(
+            '--smarts_col',
+            type=list,
+            default=['smarts'],
+            help='Columns containing the SMARTS of the ground truth fragment',
             )
         
         self.parser.add_argument(
             '--target_variable',
             type=str,
-            default='3MR',
+            default='label',
             help='Name of the column with the target variable',
             )
         
         self.parser.add_argument(
             '--set_col',
             type=str,
-            default='splits',
+            default='set',
             help='Name of the column with the set information',
             )
         
         self.parser.add_argument(
             '--id_col',
             type=str,
-            default='index',
+            default='ID',
             help='Column with the id of the molecules',
             )
         
@@ -121,6 +128,13 @@ class BaseOptions:
             )
         
         self.parser.add_argument(
+            '--network_name',
+            type=str,
+            default='graphsage',
+            help='Name of the GNN to use',
+            )
+        
+        self.parser.add_argument(
             '--n_classes',
             type=int,
             default=2,
@@ -165,7 +179,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--epochs',
             type=int,
-            default=100,
+            default=50,
             help='Number of epochs',
             )
 
@@ -174,9 +188,9 @@ class BaseOptions:
         ###########################################
 
         self.parser.add_argument(
-            '--algorithm',
+            '--XAI_algorithm',
             type=str,
-            default='GNNExplainer',
+            default='all',
             help='Algorithm to use for explainability',
             )
         

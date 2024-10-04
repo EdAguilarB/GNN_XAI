@@ -48,7 +48,7 @@ class GAT(BaseNetwork):
         
 
 
-    def forward(self, x=None, edge_index=None, edge_attr = None, batch_index=None,):
+    def forward(self, x=None, edge_index=None, batch_index=None, edge_attr=None):
 
 
         x = self.linear(x,)
@@ -56,6 +56,7 @@ class GAT(BaseNetwork):
 
         for i in range(self.n_convolutions):
             x = self.conv_layers[i](x=x, edge_index=edge_index, edge_attr=edge_attr)
+            x = nn.Dropout(p=0.2)(x)
             x = nn.ReLU()(x)
 
         x = torch.cat([gmp(x, batch_index), 
