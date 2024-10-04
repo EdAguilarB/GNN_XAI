@@ -1,4 +1,4 @@
-index,SMILES,label,label_full,smarts0,smarts1,smarts2,smarts3,smarts4,smarts5,MW,splits,3MR,smarts
+ID,smiles,label_full,label_full,smarts0,smarts1,smarts2,smarts3,smarts4,smarts5,MW,set,label,smarts
 3236,O=C1c2cccc(OCc3ccc(C(F)(F)F)cc3)c2C(=O)C2OC12,"[1, 0, 0, 0, 0, 0]",1,1,0,0,0,0,0,348.27600000000007,train,1,[*]1[*][*]1
 3865,C=C(C)C1CC(OC(C)=O)C2(C)CC3OC3(C)CCC=C(C)CCC12,"[1, 0, 0, 0, 0, 0]",1,1,0,0,0,0,0,346.51100000000014,train,1,[*]1[*][*]1
 5572,c1ccc2c(C3CO3)c3ccccc3nc2c1,"[1, 0, 0, 0, 0, 0]",1,1,0,0,0,0,0,221.259,train,1,[*]1[*][*]1
