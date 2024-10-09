@@ -3,6 +3,11 @@ from torch_geometric.loader import DataLoader
 from utils.model_utils import train_network, eval_network, network_report
 from data.mol_instance import molecular_graph
 from call_methods import make_network
+from sklearn.model_selection import train_test_split
+import json
+from copy import deepcopy
+import warnings
+from options.base_options import BaseOptions
 from icecream import ic
 
 def train_model(opt):
@@ -13,47 +18,103 @@ def train_model(opt):
     # Load the dataset
     mols = molecular_graph(opt = opt, filename = opt.filename, root = opt.root)
 
+    with open(f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_hyp_opt/best_hyperparameters.json') as f:
+        hyp = json.load(f)
+
+    print(f'Using hyperparameters: {hyp}')
+
     
     train_indices = [i for i, s in enumerate(mols.set) if s == 'train']
+    train_indices, val_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed)
     test_indices = [i for i, s in enumerate(mols.set) if s == 'test']
 
     train_dataset = mols[train_indices]
     test_dataset = mols[test_indices]
 
+    batch_size = hyp.pop('batch_size')
+    epochs = hyp.pop('epochs')
+    early_stop_patience = hyp.pop('early_stopping_patience')
+
     # Make the dataloaders
-    train_set = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True)
-    test_set = DataLoader(test_dataset, batch_size=opt.batch_size, shuffle=False)
+    train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_set = DataLoader(mols[val_indices], batch_size=batch_size, shuffle=False)
+    test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Make the network
     model = make_network(network_name=opt.network_name, 
                          opt=opt, 
                          n_node_features=mols.num_node_features, 
-                         n_edge_features=mols.num_edge_features).to(device)
+                         n_edge_features=mols.num_edge_features,
+                         **hyp).to(device)
     
-    train_list,  test_list = [], []
+    if model.kwargs:
+        unused_params = list(model.kwargs.keys())
+        warnings.warn(f"Not all hyperparameters have been used: {unused_params}", UserWarning)
+    
+    train_list, val_list, test_list, lr_list = [], [], [], []
 
-    for epoch in range(1, opt.epochs+1):
+    best_val_loss = float('inf')
+    early_stopping_counter = 0
+
+
+    for epoch in range(1, epochs+1):
+
+        lr = model.scheduler.optimizer.param_groups[0]['lr']
 
         train_loss = train_network(model = model, 
                                    train_loader=train_set, 
                                    device=device)
+        
+        val_loss = eval_network(model = model,
+                                loader=val_set,
+                                device=device)
         
         
         test_loss = eval_network(model = model,
                                 loader=test_set,
                                 device=device)
         
-        print('Epoch {:03d} | Train loss: {:.3f} | Test loss: {:.3f}'.format(epoch, train_loss, test_loss))
+        model.scheduler.step(val_loss)
+        
+        print('Epoch {:03d} | LR: {:.5f} | Train loss: {:.3f} | Val loss: {:.3f} | Test loss: {:.3f}'.format(epoch, lr, train_loss, val_loss, test_loss))
 
         train_list.append(train_loss)
+        val_list.append(val_loss)
         test_list.append(test_loss)
+        lr_list.append(lr)
+    
+        if epoch % 5 == 0:
 
+            
+            # Save the best model
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model_state = deepcopy(model.state_dict())
+                early_stopping_counter = 0
+                print(f'Best model saved at epoch {epoch:03d}')
+                print(f'Validation loss: {best_val_loss:.3f}')
+
+            else:
+                early_stopping_counter += 1
+                print(f'Early stopping counter: {early_stopping_counter}')
+                if early_stopping_counter >= early_stop_patience:
+                    print(f'Early stopping at epoch {epoch}')
+                    break
+
+
+    model.load_state_dict(best_model_state)
     network_report(
                 exp_name=f'{opt.exp_name}/{mols.filename[:-4]}',
-                loaders=(train_set, test_set),
-                loss_lists=(train_list, test_list),
+                loaders=(train_set, val_set, test_set),
+                loss_lists=(train_list, val_list, test_list, lr_list),
                 save_all=True,
                 model=model,
             )
 
 
+
+if __name__ == '__main__':
+    # Ensure 'opt' is properly initialized with all necessary attributes
+    opt = BaseOptions()
+    opt = opt.parse()
+    train_model(opt)
