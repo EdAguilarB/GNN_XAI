@@ -111,7 +111,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--n_classes',
             type=int,
-            default=3,
+            default=2,
             help='Number of classes in the target variable',
             )
         
