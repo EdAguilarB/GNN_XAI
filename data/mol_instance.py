@@ -9,6 +9,7 @@ from tqdm import tqdm
 import sys
 from data.mol_graph import mol_graph_dataset
 from sklearn.model_selection import StratifiedKFold
+import ast
 
 from icecream import ic
 
@@ -29,7 +30,7 @@ class molecular_graph(mol_graph_dataset):
                 self.split_data(root, filename, opt.folds, opt.global_seed)
             filename = filename[:-4] + '_folds' + filename[-4:]
 
-        super().__init__(opt = opt,)
+        super().__init__(opt = opt, filename = filename, root = root)
 
         
     def process(self):
@@ -71,13 +72,23 @@ class molecular_graph(mol_graph_dataset):
                     edge_index_mols = torch.cat([edge_index_mols, edge_index], axis=1)
 
             y = torch.tensor(mols[self._opt.target_variable]).reshape(1)
+
+            smarts_list = mols['smarts']
+
             try:
-                smarts = Chem.MolToSmarts(Chem.MolFromSmarts(mols['smarts']))
+                smarts_list = ast.literal_eval(smarts_list)
             except:
+                print("Error evaluating the string:", smarts_list)
+
+            smarts = []
+
+            if len(smarts_list) >= 1:
+                for substructure in smarts_list:
+                    smarts_mol = Chem.MolToSmarts(Chem.MolFromSmarts(substructure))
+                    smarts.append(smarts_mol)
+            else:
                 smarts = ''
             
-
-
             if self._opt.id_col:
                 id = mols[self._opt.id_col]
             else:
@@ -101,7 +112,6 @@ class molecular_graph(mol_graph_dataset):
     def _get_node_feats(self, mol):
 
         all_node_feats = []
-        #CIPtuples = dict(Chem.FindMolChiralCenters(mol, includeUnassigned=False))
 
         for atom in mol.GetAtoms():
             node_feats = []
