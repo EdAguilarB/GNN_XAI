@@ -13,15 +13,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class mol_graph_dataset(Dataset):
 
 
-    def __init__(self, opt: argparse.Namespace,) -> None:
+    def __init__(self, opt: argparse.Namespace, filename, root) -> None:
 
         self._opt = opt
-        self.filename = opt.filename
+        self.filename = filename
         self.mol_cols = opt.mol_cols
-        self._root = opt.root
+        self._root = root
         self._name = "BaseDataset"
         
-        super().__init__(root = self._root)
+        super().__init__(root = root)
         self.set = pd.read_csv(self.raw_paths[0])[opt.set_col]
         
 

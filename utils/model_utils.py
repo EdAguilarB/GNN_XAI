@@ -5,7 +5,8 @@ import pandas as pd
 import csv
 from datetime import date, datetime
 from sklearn.metrics import r2_score, mean_absolute_error, mean_absolute_percentage_error,\
-    mean_squared_error, accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+    accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from math import sqrt
 
 from utils.plot_utils import create_training_plot
 from icecream import ic
@@ -20,7 +21,10 @@ def train_network(model, train_loader, device):
     for batch in train_loader:
         batch = batch.to(device)
         model.optimizer.zero_grad()
-        out = model(batch.x, batch.edge_index, batch.batch, batch.edge_attr)
+        out = model(x = batch.x, 
+                    edge_index = batch.edge_index, 
+                    batch_index = batch.batch, 
+                    edge_attr = batch.edge_attr)
         loss = model.loss(out, batch.y.long())
         loss.backward()
         model.optimizer.step()
@@ -33,10 +37,11 @@ def train_network(model, train_loader, device):
 def eval_network(model, loader, device):
     model.eval()
     loss = 0
-    for batch in loader:
-        batch = batch.to(device)
-        out = model(batch.x, batch.edge_index, batch.batch, batch.edge_attr)
-        loss += model.loss(out, batch.y.long()).item() * batch.num_graphs
+    with torch.no_grad():
+        for batch in loader:
+            batch = batch.to(device)
+            out = model(batch.x, batch.edge_index, batch.batch, batch.edge_attr)
+            loss += model.loss(out, batch.y.long()).item() * batch.num_graphs
     return loss / len(loader.dataset)
 
 
@@ -50,8 +55,15 @@ def calculate_metrics(
 ) -> dict:
     metrics = {}
     if task == 'regression':
-        # (Regression metrics code remains the same)
-        pass
+        metrics['R2'] = r2_score(y_true=y_true, y_pred=y_predicted)
+        metrics['MAE'] = mean_absolute_error(y_true=y_true, y_pred=y_predicted)
+        metrics['RMSE'] = sqrt(mean_absolute_error(y_true=y_true, y_pred=y_predicted))  
+        error = [(y_predicted[i]-y_true[i]) for i in range(len(y_true))]
+        prctg_error = mean_absolute_percentage_error(y_true=y_true, y_pred=y_predicted) 
+        metrics['Mean Bias Error'] = np.mean(error)
+        metrics['Mean Absolute Percentage Error'] = np.mean(prctg_error)
+        metrics['Error Standard Deviation'] = np.std(error)
+
     elif task == 'classification':
         y_true = np.array(y_true).astype(int)
         y_predicted = np.array(y_predicted).astype(int)
@@ -66,7 +78,7 @@ def calculate_metrics(
             if num_classes == 2:
                 # Binary classification
                 if y_score.ndim == 2:
-                    y_score = y_score[:, 0]  # Extract probabilities for positive class (class 1)
+                    y_score = y_score[:, 1]  # Extract probabilities for positive class (class 1)
                 metrics['AUROC'] = roc_auc_score(y_true, y_score)
             else:
                 # Multiclass classification
@@ -144,12 +156,13 @@ def network_report(exp_name,
     run_period = "{}, {}\n".format(today_str, time)
 
     #3) Unfold loaders and save loaders and model
-    train_loader,  test_loader = loaders[0],  loaders[1]
-    N_train,  N_test = len(train_loader.dataset), len(test_loader.dataset)
+    train_loader, val_loader,  test_loader = loaders[0],  loaders[1], loaders[2]
+    N_train, N_val,  N_test = len(train_loader.dataset), len(val_loader.dataset), len(test_loader.dataset)
     N_tot = N_train +  N_test     
 
     if save_all == True:
         torch.save(train_loader, "{}/train_loader.pth".format(log_dir))
+        torch.save(val_loader, "{}/val_loader.pth".format(log_dir))
         torch.save(model, "{}/model.pth".format(log_dir))
 
 
@@ -158,13 +171,15 @@ def network_report(exp_name,
 
     #4) loss trend during training
     train_list = loss_lists[0]
-    test_list = loss_lists[1]
+    val_list = loss_lists[1]
+    test_list = loss_lists[2]
+    lr_list = loss_lists[3]
     if train_list is not None and test_list is not None:
         with open('{}/{}.csv'.format(log_dir, 'learning_process'), 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["Epoch", "Train_{}".format(loss_function), "Val_{}".format(loss_function), "Test_{}".format(loss_function)])
+            writer.writerow(["Epoch", "Learning Rate", "Train_{}".format(loss_function), "Val_{}".format(loss_function), "Test_{}".format(loss_function)])
             for i in range(len(train_list)):
-                writer.writerow([i+1, train_list[i],  test_list[i]])
+                writer.writerow([i+1, lr_list[i], train_list[i], val_list[i],  test_list[i]])
         create_training_plot(df='{}/{}.csv'.format(log_dir, 'learning_process'), save_path='{}'.format(log_dir))
 
 
@@ -196,17 +211,26 @@ def network_report(exp_name,
             for index in mispredicted:
                 file1.write("Mispredicted index = {}. Real Value: {}. Predicted Value: {}.\n".format(idx[index], y_true[index], y_pred[index]))
 
+
+    file1.write("***************\n")
+
+    y_pred, y_true, idx, y_score = predict_network(model, val_loader, True)
+    metrics = calculate_metrics(y_true = y_true, y_predicted = y_pred, task = model.problem_type, num_classes = model.num_classes, y_score=y_score)
     
-    #file1.write("***************\n")
-    #y_pred, y_true, idx, emb_val = predict_network(model, val_loader, True)
-    #emb_val['set'] = 'val'
-    #metrics, metrics_names = calculate_metrics(y_true, y_pred, task = 'r')
 
-    #file1.write("Validation set\n")
-    #file1.write("Set size = {}\n".format(N_val))
+    file1.write("Validation set\n")
+    file1.write("Set size = {}\n".format(N_val))
 
-    #for name, value in zip(metrics_names, metrics):
-    #    file1.write("{} = {:.3f}\n".format(name, value))
+    for name, value in metrics.items():
+        file1.write("{} = {:.3f}\n".format(name, value))
+
+    if model.problem_type == 'classification':
+        #plot_confusion_matrix(y_true, y_pred, log_dir)
+        mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
+        if len(mispredicted) > 0:
+            file1.write("Mispredicted instances in train set:\n")
+            for index in mispredicted:
+                file1.write("Mispredicted index = {}. Real Value: {}. Predicted Value: {}.\n".format(idx[index], y_true[index], y_pred[index]))
 
     file1.write("***************\n")
 
@@ -220,7 +244,6 @@ def network_report(exp_name,
 
     file1.write("Test set\n")
     file1.write("Set size = {}\n".format(N_test))
-
 
     metrics = calculate_metrics(y_true = y_true, y_predicted = y_pred, task = model.problem_type, num_classes = model.num_classes, y_score=y_score)
 

@@ -6,16 +6,24 @@ from torch_geometric.seed import seed_everything
 
 class BaseNetwork(nn.Module):
     
-    def __init__(self, opt: argparse.Namespace, n_node_features:int, n_edge_features:int = None):
+    def __init__(self, opt: argparse.Namespace, n_node_features:int, n_edge_features, **kwargs):
+
         super().__init__()
+
         self._name = "BaseNetwork"
         self._opt = opt
         self.n_node_features = n_node_features
-        self.n_edge_features = n_edge_features  
+        self.n_edge_features = n_edge_features
+
+        base_params = ['lr', 'n_convolutions', 'embedding_dim', 'readout_layers', 'dropout', 'step_size', 'gamma', 'min_lr']
+
+        for param in base_params:
+            setattr(self, param, kwargs.pop(param))
+
+        self.kwargs = kwargs    
+
         self._n_classes = opt.n_classes
-        self.n_convolutions = opt.n_convolutions
-        self.embedding_dim = opt.embedding_dim  
-        self.readout_layers = opt.readout_layers
+        
         self.problem_type = opt.problem_type
         self.num_classes = opt.n_classes
         self._seed_everything(opt.global_seed)
@@ -35,25 +43,25 @@ class BaseNetwork(nn.Module):
         else:
             raise ValueError(f"Problem type {self.problem_type} not supported")
         
-    def _make_optimizer(self, optimizer, lr):
+    def _make_optimizer(self, optimizer):
         if optimizer == "Adam":
-            self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, eps=1e-9)
+            self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, eps=1e-9)
         elif optimizer == "SGD":
-            self.optimizer = torch.optim.SGD(self.parameters(), lr=lr)
+            self.optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
         elif optimizer == "rmsprop":
-            self.optimizer = torch.optim.RMSprop(self.parameters(), lr=lr)
+            self.optimizer = torch.optim.RMSprop(self.parameters(), lr=self.lr)
         else:
             raise NotImplementedError(f"Optimizer type {optimizer} not implemented")
         
-    def _make_scheduler(self, scheduler, step_size, gamma, min_lr):
+    def _make_scheduler(self, scheduler,):
         if scheduler == "StepLR":
-            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=step_size, gamma=gamma)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.step_size, gamma=self.gamma)
         elif scheduler == "MultiStepLR":
-            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=step_size, gamma=gamma)
+            self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.step_size, gamma=self.gamma)
         elif scheduler == "ExponentialLR":
-            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=gamma)
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=self.gamma)
         elif scheduler == "ReduceLROnPlateau":
-            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=gamma, patience=step_size, min_lr=min_lr)
+            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=self.step_size, min_lr=self.min_lr)
         else:
             raise NotImplementedError(f"Scheduler type {scheduler} not implemented")
         

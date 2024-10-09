@@ -39,7 +39,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--root',
             type=str,
-            default='data/datasets/CYP3A4',
+            default='data/datasets/CYP3A4/',
             help='root directory of the dataset',
             )
         
@@ -91,13 +91,7 @@ class BaseOptions:
             default='Adam',
             help='Type of optimizer',
             )
-        
-        self.parser.add_argument(
-            '--lr',
-            type=float,
-            default=0.0001,
-            help='Learning rate',
-            )
+
         
         self.parser.add_argument(
             '--scheduler',
@@ -106,31 +100,11 @@ class BaseOptions:
             help='Type of scheduler',
             )
         
-        self.parser.add_argument(
-            '--step_size',
-            type=int,
-            default=7,
-            help='Step size for the scheduler',
-            )
-        
-        self.parser.add_argument(
-            '--gamma',
-            type=float,
-            default=0.7,
-            help='Factor for the scheduler',
-            )
-        
-        self.parser.add_argument(
-            '--min_lr',
-            type=float,
-            default=1e-08,
-            help='Minimum learning rate for the scheduler',
-            )
         
         self.parser.add_argument(
             '--network_name',
             type=str,
-            default='graphsage',
+            default='GCN',
             help='Name of the GNN to use',
             )
         
@@ -142,44 +116,9 @@ class BaseOptions:
             )
         
         self.parser.add_argument(
-            '--n_convolutions',
-            type=int,
-            default=3,
-            help='Number of classes in the target variable',
-            )  
-        
-        self.parser.add_argument(
-            '--embedding_dim',
-            type=int,
-            default=128,
-            help='Number of classes in the target variable',
-            )  
-        
-        self.parser.add_argument(
-            '--readout_layers',
-            type=int,
-            default=2,
-            help='Number of classes in the target variable',
-            )  
-        
-        self.parser.add_argument(
-            '--improved',
-            type=int,
-            default=False,
-            help='To include biases in GCNConv or not',
-            )
-        
-        self.parser.add_argument(
-            '--batch_size',
-            type=float,
-            default=64,
-            help='Dropout rate',
-            )
-        
-        self.parser.add_argument(
             '--epochs',
             type=int,
-            default=50,
+            default=300,
             help='Number of epochs',
             )
 
@@ -199,7 +138,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--global_seed',
             type=int,
-            default=42,
+            default=20242024,
             help='Seed for the random number generator',
             )
 

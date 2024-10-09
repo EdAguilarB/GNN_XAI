@@ -9,6 +9,7 @@ from scipy.stats import rankdata
 from utils.plot_utils import create_mol_plot2
 from datetime import datetime
 import statistics
+import ast
 from icecream import ic
 
 def calculate_attributions(opt, loader, XAI_algorithm='all'):
@@ -24,7 +25,7 @@ def calculate_attributions(opt, loader, XAI_algorithm='all'):
         'Saliency': CaptumExplainer('Saliency'),
         'InputXGradient': CaptumExplainer('InputXGradient'),
         'Deconvolution': CaptumExplainer('Deconvolution'),
-        'ShapleyValueSampling': CaptumExplainer('ShapleyValueSampling'),
+        #'ShapleyValueSampling': CaptumExplainer('ShapleyValueSampling'),
         'GuidedBackprop': CaptumExplainer('GuidedBackprop'),
     }
 
@@ -128,19 +129,25 @@ def calculate_XAI_metrics(opt, mol_attrs, exp_dir, threshold = 0.5, save_results
     
     for smiles, attrs in mol_attrs.items():
         pred_imp = []
-        idx, smiles, smarts = smiles.split('|')
-        pattern = Chem.MolFromSmarts(smarts)
+        idx, smiles, smarts_str = smiles.split('|')
+
+        smarts_list = ast.literal_eval(smarts_str)
+
         mol = Chem.MolFromSmiles(smiles) 
-        matches = mol.GetSubstructMatches(pattern)
+
+        indexes = set()
+
+        for smarts in smarts_list:
+            
+            pattern = Chem.MolFromSmarts(smarts)
+            matches = mol.GetSubstructMatches(pattern)
+            if matches:
+                indexes.update(set().union(*matches))
+
 
         assert mol.GetNumAtoms() == len(attrs), f'Num atoms: {mol.GetNumAtoms()} does not match the number of attributes: {len(attrs)}'
 
         acc = 0
-
-        if matches:
-            indexes = set().union(*matches)
-        else:
-            indexes = set()
 
         p = len(indexes)
         n = mol.GetNumAtoms() - p
@@ -171,7 +178,7 @@ def calculate_XAI_metrics(opt, mol_attrs, exp_dir, threshold = 0.5, save_results
         acc_mols[idx] = {'Accuracy': acc, 'Auroc': auroc}
         
 
-        if acc < .7 and save_results:
+        if acc < .95 and save_results:
             print(idx)
             create_mol_plot2(smiles, pred_imp, indexes, f'{logdir}/mols/{idx}.png')
     
