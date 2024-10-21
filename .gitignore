@@ -162,3 +162,9 @@ cython_debug/
 #.idea/
 
 .DS_Store
+
+figs.ipynb
+smarts_experiments.ipynb
+**/processed/
+results/
+trials.py
