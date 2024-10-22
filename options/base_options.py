@@ -32,14 +32,14 @@ class BaseOptions:
         self.parser.add_argument(
             '--filename',
             type=str,
-            default='CYP3A4.csv',
+            default='mutagenicity.csv',
             help='name of the csv file',
             )
         
         self.parser.add_argument(
             '--root',
             type=str,
-            default='data/datasets/CYP3A4/',
+            default='data/datasets/mutagenicity/',
             help='root directory of the dataset',
             )
         
