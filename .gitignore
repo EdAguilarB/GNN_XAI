@@ -164,7 +164,7 @@ cython_debug/
 .DS_Store
 
 figs.ipynb
-smarts_experiments.ipynb
+smarts_importance.ipynb
 **/processed/
 results/
 trials.py
