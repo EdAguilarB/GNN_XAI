@@ -123,9 +123,9 @@ class molecular_graph(mol_graph_dataset):
             node_feats += self._one_h_e(atom.GetFormalCharge(), [-1, 0, 1])
             # Feature 4: Chirality
             node_feats += self._one_h_e(atom.GetChiralTag(), [Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW, 
-                                                              Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW, 
-                                                              Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
-                                                              Chem.rdchem.ChiralType.CHI_OTHER])
+                                                              Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
+                                                              ],
+                                                              Chem.rdchem.ChiralType.CHI_UNSPECIFIED)
             # Feature 5: Num Hs
             node_feats += self._one_h_e(atom.GetTotalNumHs(), [0, 1, 2, 3, 4])
             # Feature 6: Hybridization
