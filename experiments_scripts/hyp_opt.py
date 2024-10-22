@@ -50,7 +50,7 @@ def run_tune(opt):
 
     _ = molecular_graph(opt=opt, filename=opt.filename, root=f'{opt.root}')
 
-    basic_datasets = ['benzene.csv', 'Liver.csv']
+    basic_datasets = ['benzene.csv', '3MR.csv']
 
     if opt.filename in basic_datasets:
         num_samples = 10
