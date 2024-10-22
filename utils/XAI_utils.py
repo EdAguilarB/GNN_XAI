@@ -178,7 +178,7 @@ def calculate_XAI_metrics(opt, mol_attrs, exp_dir, threshold = 0.5, save_results
         acc_mols[idx] = {'Accuracy': acc, 'Auroc': auroc}
         
 
-        if acc < .95 and save_results:
+        if (acc < .6 or acc > .9) and save_results:
             print(idx)
             create_mol_plot2(smiles, pred_imp, indexes, f'{logdir}/mols/{idx}.png')
     
