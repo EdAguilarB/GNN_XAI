@@ -1,8 +1,9 @@
+import ray
+from ray import tune
 from ray.tune.schedulers import ASHAScheduler
 from ray.tune import CLIReporter
 import os
 import pandas as pd
-from ray import tune
 from utils.hyp_opt_utils import train_model_ray
 from options.base_options import BaseOptions
 from data.mol_instance import molecular_graph
@@ -81,6 +82,8 @@ def run_tune(opt):
         parameter_columns=["lr", "n_convolutions", "embedding_dim", "readout_layers", "batch_size"],
         metric_columns=["val_loss", "test_loss", "training_iteration"]
     )
+
+    ray.init()
 
     result = tune.run(
         tune.with_parameters(train_model_ray, opt=opt),
