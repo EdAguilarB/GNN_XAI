@@ -12,11 +12,13 @@ import statistics
 import ast
 from icecream import ic
 
-def calculate_attributions(opt, loader, XAI_algorithm='all'):
+def calculate_attributions(opt, loader, XAI_algorithm='all', set = 'train'):
     exp_dir = f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_model'
 
+    device = torch.device('cpu')
+
     # Load the trained model
-    model = torch.load("{}/model.pth".format(exp_dir))
+    model = torch.load("{}/model.pth".format(exp_dir)).to(device)
 
     # Define available algorithms and their names
     algorithms_dict = {
@@ -42,47 +44,66 @@ def calculate_attributions(opt, loader, XAI_algorithm='all'):
     node_masks = {}
 
     # Determine the problem type for the model
-    if model.problem_type == 'classification':
-        problem_type = 'multiclass_classification'
-    else:
-        problem_type = 'regression'
+    problem_type = 'multiclass_classification' if model.problem_type == 'classification' else 'regression'
         
-    for mol in tqdm(loader):
-        smiles = mol.smiles[0]
-        smarts = mol.smarts[0]
-        idx = mol.idx[0]
+    for name, algorithm in zip(algorithms_names, algorithms):
+
         algo_dict = {}
+        algo_path = f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_XAI/{name}'
+        # Reload the model for each algorithm
+        # Initialize the explainer
+        explainer = Explainer(
+            model=model,
+            algorithm=algorithm,
+            explanation_type='model',
+            node_mask_type='attributes',
+            edge_mask_type='object',
+            model_config=dict(
+                mode=problem_type,
+                task_level='graph',
+                return_type='raw',
+            ),
+        )
 
-        if smarts == '':
-            print(f'Mol {idx} does not have a ground-truth pattern associated. Skipping analysis.')
-            continue
+        if os.path.exists(f'{algo_path}/node_masks_{set}_raw.json'):
+            print('Loading previously calculated node masks')
+            with open(f'{algo_path}/node_masks_{set}_raw.json') as f:
+                attrs_mols = json.load(f)
+        else:
+            attrs_mols = None
+            os.makedirs(algo_path, exist_ok=True)
+        
+        for mol in tqdm(loader):
+            model = torch.load(f"{exp_dir}/model.pth").to(device)
+            mol.to(device)
+            smiles = mol.smiles[0]
+            smarts = mol.smarts[0]
+            idx = mol.idx[0]
 
-        for name, algorithm in zip(algorithms_names, algorithms):
-            # Reload the model for each algorithm if necessary
-            model = torch.load("{}/model.pth".format(exp_dir))
-            # Initialize the explainer
-            explainer = Explainer(
-                model=model,
-                algorithm=algorithm,
-                explanation_type='model',
-                node_mask_type='attributes',
-                edge_mask_type='object',
-                model_config=dict(
-                    mode=problem_type,
-                    task_level='graph',
-                    return_type='raw',
-                ),
-            )
+            if smarts == '':
+                print(f'Mol {idx} does not have a ground-truth pattern associated. Skipping analysis.')
+                continue
 
             # Generate explanations
-            explanation = explainer(x=mol.x, edge_index=mol.edge_index)
-            node_mask = explanation.node_mask
+            if attrs_mols is not None:
+                if f'{idx}|{smiles}|{smarts}' in attrs_mols:
+                    node_mask = torch.tensor(attrs_mols[f'{idx}|{smiles}|{smarts}'])
+                else:
+                    explanation = explainer(x=mol.x, edge_index=mol.edge_index)
+                    node_mask = explanation.node_mask
+            else:
+                explanation = explainer(x=mol.x, edge_index=mol.edge_index)
+                node_mask = explanation.node_mask
 
             # Store individual algorithm results
-            algo_dict[name] = node_mask.detach().numpy().tolist()
-        
-        # Store the results in the same JSON structure as before
-        node_masks[f'{idx}|{smiles}|{smarts}'] = algo_dict
+            mol_key = f'{idx}|{smiles}|{smarts}'
+            if mol_key not in node_masks:
+                node_masks[mol_key] = {}
+            node_masks[mol_key][name] = node_mask.detach().numpy().tolist()
+            algo_dict[mol_key] = node_mask.detach().numpy().tolist()
+
+        with open(f'{algo_path}/node_masks_{set}_raw.json', 'w') as f:
+            json.dump(algo_dict, f, indent=4)
 
     return node_masks
 
@@ -110,9 +131,10 @@ def get_attrs_atoms(data,):
                 else:
                     dir += value # if dir is not None, add the value to dir
         
-        sign = np.sign(dir) # get the sign of the attributions
-        dir = np.abs(dir) # get the magnitud of the attributions
-        mag = dir + mag # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
+        if dir is not None: # for cases where only positive values are present
+            sign = np.sign(dir) # get the sign of the attributions
+            dir = np.abs(dir) # get the magnitud of the attributions
+            mag = dir + mag # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
         # TODO - check if the sum is the best way to combine the attributions
         # TODO - separate the scores in different families of node features eg. atom type, atom degree, etc.
         mag = np.sum(mag, axis=1) # sum over the columns to get the overall importance of each atom
