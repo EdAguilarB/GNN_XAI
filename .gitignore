@@ -168,3 +168,4 @@ smarts_importance.ipynb
 **/processed/
 results/
 trials.py
+run.sh
