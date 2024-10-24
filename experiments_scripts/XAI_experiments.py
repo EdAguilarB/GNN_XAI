@@ -37,7 +37,7 @@ def run_XAI(opt):
         with open(f'{log_dir}/node_masks_test.json') as f:
             data_test = json.load(f)
     else:
-        data_test = calculate_attributions(opt = opt, loader = test_loader, XAI_algorithm=opt.XAI_algorithm)
+        data_test = calculate_attributions(opt = opt, loader = test_loader, XAI_algorithm=opt.XAI_algorithm, set='test')
         with open(f'{log_dir}/node_masks_test.json', 'w') as f:
             json.dump(data_test, f, indent=4)
 
