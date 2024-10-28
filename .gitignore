@@ -163,7 +163,7 @@ cython_debug/
 
 .DS_Store
 
-figs.ipynb
+*.ipynb
 smarts_importance.ipynb
 **/processed/
 results/
