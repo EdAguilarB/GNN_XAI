@@ -4,6 +4,7 @@ from tqdm import tqdm
 import json
 import os
 import numpy as np
+import pandas as pd
 from rdkit import Chem
 from scipy.stats import rankdata
 from utils.plot_utils import create_mol_plot2
@@ -47,6 +48,8 @@ def calculate_attributions(opt, loader, XAI_algorithm='all', set = 'train'):
     problem_type = 'multiclass_classification' if model.problem_type == 'classification' else 'regression'
         
     for name, algorithm in zip(algorithms_names, algorithms):
+
+        print(f'Runing {name} analysis')
 
         algo_dict = {}
         algo_path = f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_XAI/{name}'
@@ -110,7 +113,6 @@ def calculate_attributions(opt, loader, XAI_algorithm='all', set = 'train'):
 
 def get_attrs_atoms(data,):
 
-    
     mol_attrs = {}
 
     for outer_key, outer_value in data.items(): # over dictionary containing the mol id and the attributions
@@ -132,9 +134,22 @@ def get_attrs_atoms(data,):
                     dir += value # if dir is not None, add the value to dir
         
         if dir is not None: # for cases where only positive values are present
-            sign = np.sign(dir) # get the sign of the attributions
-            dir = np.abs(dir) # get the magnitud of the attributions
-            mag = dir + mag # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
+
+            #sign = np.sign(dir) # get the sign of the attributions
+            #dir = np.abs(dir) # get the magnitud of the attributions
+
+            dir_min = np.min(dir)
+            dir_max = np.max(dir)
+            range_vals = dir_max - dir_min
+            if range_vals != 0:
+                dir_normalized = (dir-dir_min) / range_vals
+            else: 
+                dir_normalized = np.zeros_like(dir)
+
+            dir = np.where(dir<0, 0, dir)
+
+            mag = (mag if mag is not None else 0) + dir # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
+            
         # TODO - check if the sum is the best way to combine the attributions
         # TODO - separate the scores in different families of node features eg. atom type, atom degree, etc.
         mag = np.sum(mag, axis=1) # sum over the columns to get the overall importance of each atom
@@ -144,8 +159,19 @@ def get_attrs_atoms(data,):
 
     return mol_attrs
 
-def calculate_XAI_metrics(opt, mol_attrs, exp_dir, threshold = 0.5, save_results = True, logdir = None):
+def calculate_XAI_metrics(opt, mol_attrs, threshold = 0.5, save_results = True, logdir = None):
     # Calculate the metrics for the XAI
+
+    if logdir:
+        exp_dir = f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_model'
+        preds = pd.read_csv(f'{exp_dir}/predictions_test_set.csv', index_col=0)
+        preds['index'] = preds['index'].astype(str)
+        os.makedirs(os.path.join(logdir, 'mols', 'low_acc', 'correct_pred'), exist_ok=True)
+        os.makedirs(os.path.join(logdir, 'mols', 'low_acc', 'incorrect_pred', 'false_negative'), exist_ok=True)
+        os.makedirs(os.path.join(logdir, 'mols', 'low_acc', 'incorrect_pred', 'false_positive'), exist_ok=True)
+        os.makedirs(os.path.join(logdir, 'mols', 'high_acc', 'correct_pred'), exist_ok=True)
+        os.makedirs(os.path.join(logdir, 'mols', 'high_acc', 'incorrect_pred', 'false_negative'), exist_ok=True)
+        os.makedirs(os.path.join(logdir, 'mols', 'high_acc', 'incorrect_pred', 'false_positive'), exist_ok=True)
 
     acc_mols = {}
     
@@ -198,11 +224,38 @@ def calculate_XAI_metrics(opt, mol_attrs, exp_dir, threshold = 0.5, save_results
 
         acc = acc/len(attrs)
         acc_mols[idx] = {'Accuracy': acc, 'Auroc': auroc}
-        
 
-        if (acc < .6 or acc > .9) and save_results:
-            print(idx)
-            create_mol_plot2(smiles, pred_imp, indexes, f'{logdir}/mols/{idx}.png')
+        if save_results:     
+
+            if acc < .6 :
+                print(f'Mol {idx} being plot because of low accuracy')
+                acc_dir = 'low_acc'
+            elif acc > .9:
+                print(f'Mol {idx} being plot because of high accuracy')
+                acc_dir = 'high_acc'
+            else:
+                print(f'Mol {idx} not being plot')
+                continue
+
+            mol_y = preds.loc[preds['index'] == idx]
+            y_true = mol_y.iloc[0,0]
+            y_pred = mol_y.iloc[0,1]
+
+            if y_true == y_pred:
+                pred_dir = 'correct_pred'
+            else:
+                if y_true ==1:
+                    pred_dir = 'incorrect_pred/false_negative'
+                elif y_pred ==1:
+                    pred_dir = 'incorrect_pred/false_positive'
+
+
+            mol_plot_dir = f'{logdir}/mols/{acc_dir}/{pred_dir}/{idx}.png'
+            create_mol_plot2(smiles, pred_imp, indexes, mol_plot_dir)
+
+            
+
+
     
     if save_results:
         with open(f'{logdir}/metrics.json', 'w') as f:

@@ -17,8 +17,8 @@ def run_XAI(opt):
 
     # Load the dataset and model from experiment
     exp_dir = f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_model'
-    train_loader = DataLoader(torch.load("{}/train_loader.pth".format(exp_dir)).dataset[:50])
-    test_loader = DataLoader(torch.load("{}/test_loader.pth".format(exp_dir)).dataset[:50])
+    train_loader = DataLoader(torch.load("{}/train_loader.pth".format(exp_dir)).dataset)
+    test_loader = DataLoader(torch.load("{}/test_loader.pth".format(exp_dir)).dataset)
 
     log_dir = f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_XAI/{opt.XAI_algorithm}'
     os.makedirs(log_dir, exist_ok=True) 
@@ -46,7 +46,7 @@ def run_XAI(opt):
     threshold_results = {}
     for threshold in range(0, 100, 5):
         accuracies_train = []
-        results_train = calculate_XAI_metrics(opt, mol_attrs=mol_attrs_train, exp_dir=exp_dir, threshold=threshold/100, save_results=False)
+        results_train = calculate_XAI_metrics(opt, mol_attrs=mol_attrs_train, threshold=threshold/100, save_results=False)
         for _, value in results_train.items():
             accuracies_train.append(value['Accuracy'])
         mean_accuracy = sum(accuracies_train)/len(accuracies_train)
@@ -57,7 +57,7 @@ def run_XAI(opt):
 
     # Calculate the metrics for the test set using the best threshold found
     mol_attrs = get_attrs_atoms(data_test)
-    results_test = calculate_XAI_metrics(opt, mol_attrs=mol_attrs, exp_dir=exp_dir, threshold=best_threshold, save_results=True, logdir=f'{log_dir}')
+    results_test = calculate_XAI_metrics(opt, mol_attrs=mol_attrs, threshold=best_threshold, save_results=True, logdir=f'{log_dir}')
 
     create_XAI_report(opt, best_threshold, threshold_results, results_test, log_dir)
 
