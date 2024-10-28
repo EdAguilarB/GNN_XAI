@@ -54,9 +54,9 @@ def run_tune(opt):
     basic_datasets = ['benzene.csv', '3MR.csv']
 
     if opt.filename in basic_datasets:
-        num_samples = 10
+        num_samples = 50
     else:
-        num_samples = 300
+        num_samples = 200
 
     if opt.network_name == 'GCN':
         GCN_params = all_params + ['improved']
@@ -84,10 +84,11 @@ def run_tune(opt):
     )
 
     ray.init()
+    print("Cluster resources:", ray.cluster_resources())
 
     result = tune.run(
         tune.with_parameters(train_model_ray, opt=opt),
-        resources_per_trial={"cpu": 1, "gpu": 0.},  # Adjust based on your resources
+        resources_per_trial={"cpu": 3, "gpu": 0.5},  # Adjust based on your resources
         config=config,
         num_samples=num_samples,  # Number of hyperparameter combinations to try
         scheduler=scheduler,
