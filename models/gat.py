@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.networks import BaseNetwork
-from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, GATConv
+from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, GATv2Conv
 import argparse
 
 
@@ -28,7 +28,7 @@ class GAT(BaseNetwork):
         self.conv_layers = nn.ModuleList([])
         self.norm_layers = nn.ModuleList([])
         for _ in range(self.n_convolutions):
-            self.conv_layers.append(GATConv(in_channels=self.embedding_dim, 
+            self.conv_layers.append(GATv2Conv(in_channels=self.embedding_dim, 
                                             out_channels=self.embedding_dim,
                                             heads=self.heads, 
                                             concat=False,
