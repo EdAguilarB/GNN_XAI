@@ -22,7 +22,7 @@ class BaseNetwork(nn.Module):
 
         self.kwargs = kwargs    
 
-        self._n_classes = opt.n_classes
+        self.n_classes = opt.n_classes
         
         self.problem_type = opt.problem_type
         self.num_classes = opt.n_classes

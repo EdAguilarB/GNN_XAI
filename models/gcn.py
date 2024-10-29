@@ -51,7 +51,7 @@ class GCN(BaseNetwork):
             graph_embedding = reduced_dim
 
         #Final readout layer
-        self.output_layer = nn.Linear(graph_embedding, self._n_classes)
+        self.output_layer = nn.Linear(graph_embedding, self.n_classes)
         
         self._make_loss()
         self._make_optimizer(opt.optimizer)
@@ -74,5 +74,8 @@ class GCN(BaseNetwork):
             x = F.leaky_relu(layer(x))
         
         x = self.output_layer(x)
+
+        if self.n_classes == 1:
+            x = x.float().squeeze()
 
         return x
