@@ -32,14 +32,14 @@ class BaseOptions:
         self.parser.add_argument(
             '--filename',
             type=str,
-            default='mutagenicity.csv',
+            default='Liver.csv',
             help='name of the csv file',
             )
         
         self.parser.add_argument(
             '--root',
             type=str,
-            default='data/datasets/mutagenicity/',
+            default='data/datasets/Liver/',
             help='root directory of the dataset',
             )
         
@@ -104,14 +104,14 @@ class BaseOptions:
         self.parser.add_argument(
             '--network_name',
             type=str,
-            default='GCN',
+            default='GAT',
             help='Name of the GNN to use',
             )
         
         self.parser.add_argument(
             '--n_classes',
             type=int,
-            default=2,
+            default=3,
             help='Number of classes in the target variable',
             )
         
