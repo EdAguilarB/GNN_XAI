@@ -16,9 +16,17 @@ def train_model_ray(config, opt):
     # Split dataset indices
     train_indices = [i for i, s in enumerate(mols.set) if s == 'train']
 
+    
+    # Define stratification target once based on the problem type
+    stratified = mols.y[train_indices]if opt.problem_type == 'classification' else None
+
     # Further split train_indices into train and validation indices
-    train_indices, test_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed)
-    train_indices, val_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed)
+    train_indices, test_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed, stratify=stratified)
+
+    # Re-define stratified target for remaining train_indices if classification
+    stratified = mols.y[train_indices] if opt.problem_type == 'classification' else None
+
+    train_indices, val_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed, stratify=stratified)
 
     # Create datasets
     train_dataset = mols[train_indices]

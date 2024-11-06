@@ -21,6 +21,7 @@ configs = {
     'step_size': tune.choice([5, 10, 15]),
     'gamma': tune.choice([.7,.5,.3]),
     'min_lr': tune.choice([1e-08, 0]),
+    'pooling': tune.choice(['mean', 'max', 'sum', 'mean/max']),
 
     # training params
     'batch_size': tune.choice([32, 64]),
@@ -37,7 +38,7 @@ configs = {
     'aggr': tune.choice(['mean', 'max']),
 }
 
-base_network_params = ['lr', 'n_convolutions', 'embedding_dim', 'readout_layers', 'dropout', 'step_size', 'gamma', 'min_lr']
+base_network_params = ['lr', 'n_convolutions', 'embedding_dim', 'readout_layers', 'dropout', 'step_size', 'gamma', 'min_lr', 'pooling']
 training_params = ['batch_size', 'early_stopping_patience', 'epochs']
 all_params = base_network_params + training_params
 

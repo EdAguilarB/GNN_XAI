@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.networks import BaseNetwork
-from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, GATv2Conv
+from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, global_add_pool as gsp, GATv2Conv
 import argparse
 
 
@@ -39,7 +39,7 @@ class GAT(BaseNetwork):
 
 
         #graph embedding is the concatenation of the global mean and max pooling, thus 2*embedding_dim
-        graph_embedding = self.embedding_dim*2
+        graph_embedding = self.graph_embedding
 
         self.dropout_layer = nn.Dropout(p=self.dropout)
 
@@ -70,8 +70,15 @@ class GAT(BaseNetwork):
             x = conv_layer(x, edge_index, edge_attr)
             x = norm_layer(x)
 
-        x = torch.cat([gmp(x, batch_index), 
-                            gap(x, batch_index)], dim=1)
+        if self.pooling == 'mean':
+            x = gap(x, batch_index)
+        elif self.pooling == 'max':
+            x = gmp(x, batch_index)
+        elif self.pooling == 'sum':
+            x = gsp(x, batch_index)
+        elif self.pooling == 'mean/max':
+            x = torch.cat([gmp(x, batch_index), 
+                                gap(x, batch_index)], dim=1)
         
         for layer in self.readout:
             x = F.leaky_relu(layer(x))

@@ -23,6 +23,7 @@ class mol_graph_dataset(Dataset):
         
         super().__init__(root = root)
         self.set = pd.read_csv(self.raw_paths[0])[opt.set_col]
+        self.y = pd.read_csv(self.raw_paths[0])[opt.target_variable]
         
 
     @property
