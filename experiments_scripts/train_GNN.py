@@ -25,10 +25,12 @@ def train_model(opt):
 
     
     train_indices = [i for i, s in enumerate(mols.set) if s == 'train']
-    train_indices, val_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed)
+    stratified = mols.y[train_indices] if opt.problem_type == 'classification' else None
+    train_indices, val_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed, stratify=stratified)
     test_indices = [i for i, s in enumerate(mols.set) if s == 'test']
 
     train_dataset = mols[train_indices]
+    val_dataset = mols[val_indices]
     test_dataset = mols[test_indices]
 
     batch_size = hyp.pop('batch_size')
@@ -37,7 +39,7 @@ def train_model(opt):
 
     # Make the dataloaders
     train_set = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_set = DataLoader(mols[val_indices], batch_size=batch_size, shuffle=False)
+    val_set = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Make the network
