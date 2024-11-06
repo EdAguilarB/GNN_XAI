@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.networks import BaseNetwork
-from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, SAGEConv
+from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp, global_add_pool as gsp, SAGEConv
 import argparse
 
 class graphsage(BaseNetwork):
@@ -36,7 +36,7 @@ class graphsage(BaseNetwork):
             self.norm_layers.append(nn.BatchNorm1d(self.embedding_dim))
 
         #graph embedding is the concatenation of the global mean and max pooling, thus 2*embedding_dim
-        graph_embedding = self.embedding_dim*2
+        graph_embedding = self.graph_embedding
 
         self.dropout_layer = nn.Dropout(p=self.dropout)
 
@@ -66,8 +66,15 @@ class graphsage(BaseNetwork):
         for conv_layer, norm_layer in zip(self.conv_layers, self.norm_layers):
             x = F.leaky_relu(norm_layer(conv_layer(x, edge_index)))
 
-        x = torch.cat([gmp(x, batch_index), 
-                       gap(x, batch_index)], dim=1)
+        if self.pooling == 'mean':
+            x = gap(x, batch_index)
+        elif self.pooling == 'max':
+            x = gmp(x, batch_index)
+        elif self.pooling == 'sum':
+            x = gsp(x, batch_index)
+        elif self.pooling == 'mean/max':
+            x = torch.cat([gmp(x, batch_index), 
+                                gap(x, batch_index)], dim=1)
         
         x = self.dropout_layer(x)
         

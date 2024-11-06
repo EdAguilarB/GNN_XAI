@@ -15,7 +15,7 @@ class BaseNetwork(nn.Module):
         self.n_node_features = n_node_features
         self.n_edge_features = n_edge_features
 
-        base_params = ['lr', 'n_convolutions', 'embedding_dim', 'readout_layers', 'dropout', 'step_size', 'gamma', 'min_lr']
+        base_params = ['lr', 'n_convolutions', 'embedding_dim', 'readout_layers', 'dropout', 'step_size', 'gamma', 'min_lr', 'pooling']
 
         for param in base_params:
             setattr(self, param, kwargs.pop(param))
@@ -27,6 +27,11 @@ class BaseNetwork(nn.Module):
         self.problem_type = opt.problem_type
         self.num_classes = opt.n_classes
         self._seed_everything(opt.global_seed)
+
+        if self.pooling == 'mean/max':
+            self.graph_embedding = self.embedding_dim*2
+        else:
+            self.graph_embedding = self.embedding_dim
 
     def forward(self):
         raise NotImplementedError
