@@ -73,19 +73,24 @@ class molecular_graph(mol_graph_dataset):
 
             y = torch.tensor(mols[self._opt.target_variable]).reshape(1)
 
-            smarts_list = mols['smarts']
+            if 'smarts' in mols:
 
-            try:
-                smarts_list = ast.literal_eval(smarts_list)
-            except:
-                print("Error evaluating the string:", smarts_list)
+                smarts_list = mols['smarts']
 
-            smarts = []
+                try:
+                    smarts_list = ast.literal_eval(smarts_list)
+                except:
+                    print("Error evaluating the string:", smarts_list)
 
-            if len(smarts_list) >= 1:
-                for substructure in smarts_list:
-                    smarts_mol = Chem.MolToSmarts(Chem.MolFromSmarts(substructure))
-                    smarts.append(smarts_mol)
+                smarts = []
+
+                if len(smarts_list) >= 1:
+                    for substructure in smarts_list:
+                        smarts_mol = Chem.MolToSmarts(Chem.MolFromSmarts(substructure))
+                        smarts.append(smarts_mol)
+                else:
+                    smarts = ''
+            
             else:
                 smarts = ''
             

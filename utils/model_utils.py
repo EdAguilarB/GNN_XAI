@@ -25,7 +25,12 @@ def train_network(model, train_loader, device):
                     edge_index = batch.edge_index, 
                     batch_index = batch.batch, 
                     edge_attr = batch.edge_attr)
-        loss = model.loss(out, batch.y.long())
+        
+        if model.problem_type == 'classification':
+            loss = model.loss(out, batch.y.long())
+        elif model.problem_type == 'regression':
+            loss = torch.sqrt(model.loss(out, batch.y.float()))
+
         loss.backward()
         model.optimizer.step()
 
@@ -41,7 +46,10 @@ def eval_network(model, loader, device):
         for batch in loader:
             batch = batch.to(device)
             out = model(batch.x, batch.edge_index, batch.batch, batch.edge_attr)
-            loss += model.loss(out, batch.y.long()).item() * batch.num_graphs
+            if model.problem_type == 'classification':
+                loss += model.loss(out, batch.y.long()).item() * batch.num_graphs
+            elif model.problem_type == 'regression':
+                loss += torch.sqrt(model.loss(out, batch.y.float())).item() * batch.num_graphs
     return loss / len(loader.dataset)
 
 
