@@ -1,11 +1,16 @@
+import os
 import torch
 from torch_geometric.loader import DataLoader
 import json
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
 
 import random
 from options.base_options import BaseOptions
 from utils.XAI_utils import calculate_attributions, get_attrs_atoms, calculate_XAI_metrics, create_XAI_report
-import os
 from icecream import ic
 
 
@@ -42,27 +47,30 @@ def run_XAI(opt):
             json.dump(data_test, f, indent=4)
 
     # Calculate the best threshold for the test set by using the training set
-    mol_attrs_train = get_attrs_atoms(data_train)
-    threshold_results = {}
-    for threshold in range(0, 100, 5):
-        accuracies_train = []
-        results_train = calculate_XAI_metrics(opt, mol_attrs=mol_attrs_train, threshold=threshold/100, save_results=False)
-        for _, value in results_train.items():
-            accuracies_train.append(value['Accuracy'])
-        mean_accuracy = sum(accuracies_train)/len(accuracies_train)
-        threshold_results[threshold/100] = mean_accuracy
-    best_threshold = max(threshold_results, key=threshold_results.get)
-    print(f'The best threshold is {best_threshold} with an accuracy of {threshold_results[best_threshold]}')
+    mol_attrs_train = get_attrs_atoms(data_train, opt)
+    mol_attrs = get_attrs_atoms(data_test, opt)
+
+    if opt.XAI_mode == 'evaluate':
+        threshold_results = {}
+        for threshold in range(0, 100, 5):
+            accuracies_train = []
+            results_train = calculate_XAI_metrics(opt, mol_attrs=mol_attrs_train, threshold=threshold/100, save_results=False)
+            for _, value in results_train.items():
+                accuracies_train.append(value['Accuracy'])
+            mean_accuracy = sum(accuracies_train)/len(accuracies_train)
+            threshold_results[threshold/100] = mean_accuracy
+        best_threshold = max(threshold_results, key=threshold_results.get)
+        print(f'The best threshold is {best_threshold} with an accuracy of {threshold_results[best_threshold]}')
 
 
-    # Calculate the metrics for the test set using the best threshold found
-    mol_attrs = get_attrs_atoms(data_test)
-    results_test = calculate_XAI_metrics(opt, mol_attrs=mol_attrs, threshold=best_threshold, save_results=True, logdir=f'{log_dir}')
+        # Calculate the metrics for the test set using the best threshold found
+        results_test = calculate_XAI_metrics(opt, mol_attrs=mol_attrs, threshold=best_threshold, save_results=True, logdir=f'{log_dir}')
 
-    create_XAI_report(opt, best_threshold, threshold_results, results_test, log_dir)
+        create_XAI_report(opt, best_threshold, threshold_results, results_test, log_dir)
+    
+    elif opt.XAI_mode == 'get_importance':
+        pass
 
-
-        
 
 if __name__ == '__main__':
     # Ensure 'opt' is properly initialized with all necessary attributes
