@@ -29,7 +29,7 @@ def train_network(model, train_loader, device):
         if model.problem_type == 'classification':
             loss = model.loss(out, batch.y.long())
         elif model.problem_type == 'regression':
-            loss = torch.sqrt(model.loss(out, batch.y.float()))
+            loss = torch.sqrt(model.loss(out.squeeze(), batch.y.float()))
 
         loss.backward()
         model.optimizer.step()
@@ -49,7 +49,7 @@ def eval_network(model, loader, device):
             if model.problem_type == 'classification':
                 loss += model.loss(out, batch.y.long()).item() * batch.num_graphs
             elif model.problem_type == 'regression':
-                loss += torch.sqrt(model.loss(out, batch.y.float())).item() * batch.num_graphs
+                loss += torch.sqrt(model.loss(out.squeeze(), batch.y.float())).item() * batch.num_graphs
     return loss / len(loader.dataset)
 
 
