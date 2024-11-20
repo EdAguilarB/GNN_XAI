@@ -32,14 +32,14 @@ class BaseOptions:
         self.parser.add_argument(
             '--filename',
             type=str,
-            default='Liver.csv',
+            default='benzene.csv',
             help='name of the csv file',
             )
         
         self.parser.add_argument(
             '--root',
             type=str,
-            default='data/datasets/Liver/',
+            default='data/datasets/benzene/',
             help='root directory of the dataset',
             )
         
@@ -111,7 +111,7 @@ class BaseOptions:
         self.parser.add_argument(
             '--n_classes',
             type=int,
-            default=3,
+            default=2,
             help='Number of classes in the target variable',
             )
         
@@ -125,6 +125,27 @@ class BaseOptions:
         ###########################################
         ########Options for explainability#########
         ###########################################
+
+        self.parser.add_argument(
+            '--XAI_mode',
+            type=str,
+            default='evaluate', 
+            help='Mode to run the explainability. Options are: get_importance to get the importance of any molecule, or evaluate: to compare the importance of fragments of the model against the ground truth',
+            )
+        
+        self.parser.add_argument(
+            '--XAI_attrs_mode',
+            type=str,
+            default='directional',
+            help='Type of attributions to calculate. Directional will calculate attributions based on the direction of the prediction, absolute will calculate the attributions based on the absolute value of the score',
+            )
+        
+        self.parser.add_argument(
+            '--XAI_threshold',
+            type=float,
+            default=0.5,
+            help='Threshold to use for the explainability',
+            )
 
         self.parser.add_argument(
             '--XAI_algorithm',
