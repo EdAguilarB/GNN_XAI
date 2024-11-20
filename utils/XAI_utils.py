@@ -19,7 +19,7 @@ def calculate_attributions(opt, loader, XAI_algorithm='all', set = 'train'):
     device = torch.device('cpu')
 
     # Load the trained model
-    model = torch.load("{}/model.pth".format(exp_dir)).to(device)
+    model = torch.load("{}/model.pth".format(exp_dir), map_location=torch.device('cpu')).to(device)
 
     # Define available algorithms and their names
     algorithms_dict = {
@@ -77,13 +77,13 @@ def calculate_attributions(opt, loader, XAI_algorithm='all', set = 'train'):
             os.makedirs(algo_path, exist_ok=True)
         
         for mol in tqdm(loader):
-            model = torch.load(f"{exp_dir}/model.pth").to(device)
+            model = torch.load(f"{exp_dir}/model.pth", map_location=torch.device('cpu')).to(device)
             mol.to(device)
             smiles = mol.smiles[0]
             smarts = mol.smarts[0]
             idx = mol.idx[0]
 
-            if smarts == '':
+            if smarts == '' and opt.XAI_mode == 'compare':
                 print(f'Mol {idx} does not have a ground-truth pattern associated. Skipping analysis.')
                 continue
 
@@ -92,10 +92,10 @@ def calculate_attributions(opt, loader, XAI_algorithm='all', set = 'train'):
                 if f'{idx}|{smiles}|{smarts}' in attrs_mols:
                     node_mask = torch.tensor(attrs_mols[f'{idx}|{smiles}|{smarts}'])
                 else:
-                    explanation = explainer(x=mol.x, edge_index=mol.edge_index)
+                    explanation = explainer(x=mol.x, edge_index=mol.edge_index,)
                     node_mask = explanation.node_mask
             else:
-                explanation = explainer(x=mol.x, edge_index=mol.edge_index)
+                explanation = explainer(x=mol.x, edge_index=mol.edge_index,)
                 node_mask = explanation.node_mask
 
             # Store individual algorithm results
@@ -111,7 +111,7 @@ def calculate_attributions(opt, loader, XAI_algorithm='all', set = 'train'):
     return node_masks
 
 
-def get_attrs_atoms(data,):
+def get_attrs_atoms(data, opt):
 
     mol_attrs = {}
 
@@ -135,20 +135,22 @@ def get_attrs_atoms(data,):
         
         if dir is not None: # for cases where only positive values are present
 
-            #sign = np.sign(dir) # get the sign of the attributions
-            #dir = np.abs(dir) # get the magnitud of the attributions
+            if opt.XAI_attrs_mode == 'directional':
+                # this will get the direction that each feature is pointing to. Then, 
+                # get the absolute values of importance and add them to the attributions 
+                # of the GNNExplainer and Saliency. Lastly, multiply the attributions by 
+                # the sign in the original attributions to get the direction of the attributions
 
-            dir_min = np.min(dir)
-            dir_max = np.max(dir)
-            range_vals = dir_max - dir_min
-            if range_vals != 0:
-                dir_normalized = (dir-dir_min) / range_vals
-            else: 
-                dir_normalized = np.zeros_like(dir)
+                sign = np.sign(dir) # get the sign of the attributions
+                dir = np.abs(dir) # get the magnitud of the attributions
 
-            dir = np.where(dir<0, 0, dir)
+                mag = (mag if mag is not None else 0) + dir # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
+                mag = mag * sign # multiply the attributions by the sign to get the direction of the attributions
+            
+            elif opt.XAI_attrs_mode == 'absolute':
 
-            mag = (mag if mag is not None else 0) + dir # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
+                dir = np.abs(dir)
+                mag = (mag if mag is not None else 0) + dir # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
             
         # TODO - check if the sum is the best way to combine the attributions
         # TODO - separate the scores in different families of node features eg. atom type, atom degree, etc.
@@ -244,18 +246,14 @@ def calculate_XAI_metrics(opt, mol_attrs, threshold = 0.5, save_results = True, 
             if y_true == y_pred:
                 pred_dir = 'correct_pred'
             else:
-                if y_true ==1:
+                if y_true ==1 or y_true == 2:
                     pred_dir = 'incorrect_pred/false_negative'
-                elif y_pred ==1:
+                elif y_pred ==1 or y_pred == 2:
                     pred_dir = 'incorrect_pred/false_positive'
 
 
             mol_plot_dir = f'{logdir}/mols/{acc_dir}/{pred_dir}/{idx}.png'
             create_mol_plot2(smiles, pred_imp, indexes, mol_plot_dir)
-
-            
-
-
     
     if save_results:
         with open(f'{logdir}/metrics.json', 'w') as f:
