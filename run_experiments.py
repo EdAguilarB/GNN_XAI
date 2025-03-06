@@ -41,7 +41,21 @@ def run():
     # Train the GNN if the model file does not exist
     if not os.path.exists(f"{GNN_dir}/model.pth"):
         print(f"{GNN_dir}/model.pth does not exist. Training the GNN model.")
-        train_model(opt)
+        train_model(
+            filename=opt.filename,
+            root=opt.root,
+            mol_cols=opt.mol_cols,
+            set_col=opt.set_col,
+            target_variable=opt.target_variable,
+            id_col=opt.id_col,
+            network_name=opt.network_name,
+            exp_name=opt.exp_name,
+            global_seed=opt.global_seed,
+            problem_type=opt.problem_type,
+            n_classes=opt.n_classes,
+            optimizer=opt.optimizer,
+            scheduler=opt.scheduler,
+        )
 
     # Run the XAI experiments if the node masks do not exist
     if not os.path.exists(f"{XAI_dir}/metrics_{opt.XAI_attrs_mode}.json"):
