@@ -101,9 +101,7 @@ def train_model(
 
     loss_fn = make_loss(problem_type=problem_type)
 
-    optimizer_fn = make_optimizer(
-        optimizer=optimizer, model=model, lr=hyp.pop("lr")
-    )
+    optimizer_fn = make_optimizer(optimizer=optimizer, model=model, lr=hyp.pop("lr"))
 
     scheduler_fn = make_scheduler(
         scheduler=scheduler,
