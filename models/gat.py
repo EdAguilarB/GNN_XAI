@@ -103,3 +103,24 @@ class GAT(BaseNetwork):
             x = x.float()
 
         return x
+
+    def return_embeddings(
+        self, x=None, edge_index=None, batch_index=None, edge_attr=None
+    ):
+
+        x = F.leaky_relu(self.batch_norm(self.linear(x)))
+
+        for conv_layer, norm_layer in zip(self.conv_layers, self.norm_layers):
+            x = conv_layer(x, edge_index, edge_attr)
+            x = norm_layer(x)
+
+        if self.pooling == "mean":
+            x = gap(x, batch_index)
+        elif self.pooling == "max":
+            x = gmp(x, batch_index)
+        elif self.pooling == "sum":
+            x = gsp(x, batch_index)
+        elif self.pooling == "mean/max":
+            x = torch.cat([gmp(x, batch_index), gap(x, batch_index)], dim=1)
+
+        return x
