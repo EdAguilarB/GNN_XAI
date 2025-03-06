@@ -18,7 +18,8 @@ from torch_geometric.explain import CaptumExplainer, Explainer, GNNExplainer
 from torch_geometric.explain.metric import groundtruth_metrics
 from tqdm import tqdm
 
-from utils.plot_utils import create_mol_plot2, draw_molecule_with_similarity_map
+from utils.plot_utils import (create_mol_plot2,
+                              draw_molecule_with_similarity_map)
 
 
 def calculate_attributions(opt, loader, XAI_algorithm="all", set="train"):
