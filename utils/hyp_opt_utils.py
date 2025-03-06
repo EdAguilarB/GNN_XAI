@@ -3,8 +3,7 @@ from ray import tune
 from sklearn.model_selection import train_test_split
 from torch_geometric.loader import DataLoader
 
-from call_methods import (make_loss, make_network, make_optimizer,
-                          make_scheduler)
+from call_methods import make_loss, make_network, make_optimizer, make_scheduler
 from data.mol_instance import molecular_graph
 from utils.model_utils import eval_network, train_network
 
