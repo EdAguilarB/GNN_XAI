@@ -214,7 +214,6 @@ import io
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
-
 # Import necessary modules
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw

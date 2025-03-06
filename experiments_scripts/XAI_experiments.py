@@ -14,15 +14,10 @@ import random
 from icecream import ic
 
 from options.base_options import BaseOptions
-from utils.XAI_utils import (
-    calculate_attributions,
-    calculate_XAI_metrics,
-    create_XAI_report,
-    find_hot_spots,
-    find_substructures,
-    get_attrs_atoms,
-    get_smarts_mols,
-)
+from utils.XAI_utils import (calculate_attributions, calculate_XAI_metrics,
+                             create_XAI_report, find_hot_spots,
+                             find_substructures, get_attrs_atoms,
+                             get_smarts_mols)
 
 
 def run_XAI(opt):

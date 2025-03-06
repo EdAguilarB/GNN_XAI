@@ -14,7 +14,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.append(parent_dir)
 
-from call_methods import make_loss, make_network, make_optimizer, make_scheduler
+from call_methods import (make_loss, make_network, make_optimizer,
+                          make_scheduler)
 from data.mol_instance import molecular_graph
 from options.base_options import BaseOptions
 from utils.model_utils import eval_network, network_report, train_network

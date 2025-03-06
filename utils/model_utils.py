@@ -8,22 +8,12 @@ import numpy as np
 import pandas as pd
 import torch
 from icecream import ic
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    precision_score,
-    r2_score,
-    recall_score,
-    roc_auc_score,
-)
+from sklearn.metrics import (accuracy_score, f1_score, mean_absolute_error,
+                             mean_absolute_percentage_error, precision_score,
+                             r2_score, recall_score, roc_auc_score)
 
-from utils.plot_utils import (
-    create_parity_plot,
-    create_training_plot,
-    plot_confusion_matrix,
-)
+from utils.plot_utils import (create_parity_plot, create_training_plot,
+                              plot_confusion_matrix)
 
 
 def train_network(model, train_loader, device, loss_fn, optimizer):
