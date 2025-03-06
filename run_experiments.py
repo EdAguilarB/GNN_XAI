@@ -62,7 +62,14 @@ def run():
         print(
             f"{XAI_dir}/node_masks_train.json does not exist. Running XAI experiments."
         )
-        run_XAI(opt)
+        run_XAI(global_seed=opt.global_seed,
+                exp_name=opt.exp_name,
+                filename=opt.filename,
+                network_name=opt.network_name,
+                XAI_algorithm=opt.XAI_algorithm,
+                XAI_mode=opt.XAI_mode,
+                XAI_attrs_mode=opt.XAI_attrs_mode
+                )
 
 
 if __name__ == "__main__":
