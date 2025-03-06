@@ -14,161 +14,152 @@ class BaseOptions:
         ###########################################
 
         self.parser.add_argument(
-            '--exp_name',
+            "--exp_name",
             type=str,
-            default='results',
-            help='Name of the experiment',
-            )
+            default="results",
+            help="Name of the experiment",
+        )
 
         self.parser.add_argument(
-            '--train_GNN',
+            "--train_GNN",
             type=self.str2bool,
-            nargs='?',
+            nargs="?",
             const=True,
             default=True,
-            help='Whether to train the GNN or not'
-            )
+            help="Whether to train the GNN or not",
+        )
 
         self.parser.add_argument(
-            '--filename',
+            "--filename",
             type=str,
-            default='biodegradability.csv',
-            help='name of the csv file',
-            )
+            default="biodegradability.csv",
+            help="name of the csv file",
+        )
 
         self.parser.add_argument(
-            '--root',
+            "--root",
             type=str,
-            default='data/datasets/biodegradability/',
-            help='root directory of the dataset',
-            )
+            default="data/datasets/biodegradability/",
+            help="root directory of the dataset",
+        )
 
         self.parser.add_argument(
-            '--mol_cols',
+            "--mol_cols",
             type=list,
-            default=['smiles'],
-            help='Columns containing the SMILES of the molecules',
-            )
+            default=["smiles"],
+            help="Columns containing the SMILES of the molecules",
+        )
 
         self.parser.add_argument(
-            '--smarts_col',
+            "--smarts_col",
             type=list,
-            default=['smarts'],
-            help='Columns containing the SMARTS of the ground truth fragment',
-            )
+            default=["smarts"],
+            help="Columns containing the SMARTS of the ground truth fragment",
+        )
 
         self.parser.add_argument(
-            '--target_variable',
+            "--target_variable",
             type=str,
-            default='label',
-            help='Name of the column with the target variable',
-            )
+            default="label",
+            help="Name of the column with the target variable",
+        )
 
         self.parser.add_argument(
-            '--set_col',
+            "--set_col",
             type=str,
-            default='set',
-            help='Name of the column with the set information',
-            )
+            default="set",
+            help="Name of the column with the set information",
+        )
 
         self.parser.add_argument(
-            '--id_col',
+            "--id_col",
             type=str,
-            default='ID',
-            help='Column with the id of the molecules',
-            )
+            default="ID",
+            help="Column with the id of the molecules",
+        )
 
         self.parser.add_argument(
-            '--problem_type',
+            "--problem_type",
             type=str,
-            default='classification',
-            help='Type of problem to solve',
-            )
+            default="classification",
+            help="Type of problem to solve",
+        )
 
         self.parser.add_argument(
-            '--optimizer',
+            "--optimizer",
             type=str,
-            default='Adam',
-            help='Type of optimizer',
-            )
-
+            default="Adam",
+            help="Type of optimizer",
+        )
 
         self.parser.add_argument(
-            '--scheduler',
+            "--scheduler",
             type=str,
-            default='ReduceLROnPlateau',
-            help='Type of scheduler',
-            )
-
+            default="ReduceLROnPlateau",
+            help="Type of scheduler",
+        )
 
         self.parser.add_argument(
-            '--network_name',
+            "--network_name",
             type=str,
-            default='graphsage',
-            help='Name of the GNN to use',
-            )
+            default="graphsage",
+            help="Name of the GNN to use",
+        )
 
         self.parser.add_argument(
-            '--n_classes',
+            "--n_classes",
             type=int,
             default=2,
-            help='Number of classes in the target variable',
-            )
+            help="Number of classes in the target variable",
+        )
 
         self.parser.add_argument(
-            '--epochs',
+            "--epochs",
             type=int,
             default=300,
-            help='Number of epochs',
-            )
+            help="Number of epochs",
+        )
 
         ###########################################
         ########Options for explainability#########
         ###########################################
 
         self.parser.add_argument(
-            '--XAI_mode',
+            "--XAI_mode",
             type=str,
-            default='get_importance',
-            help='Mode to run the explainability. Options are: get_importance to get the importance of any molecule, or evaluate: to compare the importance of fragments of the model against the ground truth',
-            )
+            default="get_importance",
+            help="Mode to run the explainability. Options are: get_importance to get the importance of any molecule, or evaluate: to compare the importance of fragments of the model against the ground truth",
+        )
 
         self.parser.add_argument(
-            '--XAI_attrs_mode',
+            "--XAI_attrs_mode",
             type=str,
-            default='directional',
-            help='Type of attributions to calculate. Directional will calculate attributions based on the direction of the prediction, absolute will calculate the attributions based on the absolute value of the score',
-            )
+            default="directional",
+            help="Type of attributions to calculate. Directional will calculate attributions based on the direction of the prediction, absolute will calculate the attributions based on the absolute value of the score",
+        )
 
         self.parser.add_argument(
-            '--XAI_threshold',
+            "--XAI_threshold",
             type=float,
             default=0.5,
-            help='Threshold to use for the explainability',
-            )
+            help="Threshold to use for the explainability",
+        )
 
         self.parser.add_argument(
-            '--XAI_algorithm',
+            "--XAI_algorithm",
             type=str,
-            default='all',
-            help='Algorithm to use for explainability',
-            )
-
-
+            default="all",
+            help="Algorithm to use for explainability",
+        )
 
         self.parser.add_argument(
-            '--global_seed',
+            "--global_seed",
             type=int,
             default=20242024,
-            help='Seed for the random number generator',
-            )
-
-
-
-
+            help="Seed for the random number generator",
+        )
 
         self.initialized = True
-
 
     def parse(self):
         if not self.initialized:
@@ -181,9 +172,9 @@ class BaseOptions:
     def str2bool(value):
         if isinstance(value, bool):
             return value
-        if value.lower() in ('yes', 'true', 't', 'y', '1'):
+        if value.lower() in ("yes", "true", "t", "y", "1"):
             return True
-        elif value.lower() in ('no', 'false', 'f', 'n', '0'):
+        elif value.lower() in ("no", "false", "f", "n", "0"):
             return False
         else:
-            raise argparse.ArgumentTypeError('Boolean value expected.')
+            raise argparse.ArgumentTypeError("Boolean value expected.")

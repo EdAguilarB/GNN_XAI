@@ -1,39 +1,29 @@
-from pathlib import Path
 import csv
 import os
 from datetime import date, datetime
 from math import sqrt
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from icecream import ic
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    precision_score,
-    r2_score,
-    recall_score,
-    roc_auc_score,
-)
+from sklearn.metrics import (accuracy_score, f1_score, mean_absolute_error,
+                             mean_absolute_percentage_error, precision_score,
+                             r2_score, recall_score, roc_auc_score)
 
-from utils.plot_utils import (
-    create_parity_plot,
-    create_training_plot,
-    plot_confusion_matrix,
-)
+from utils.plot_utils import (create_parity_plot, create_training_plot,
+                              plot_confusion_matrix)
 
 
-def train_network(model, train_loader, device):
+def train_network(model, train_loader, device, loss_fn, optimizer):
 
     train_loss = 0
     model.train()
 
     for batch in train_loader:
         batch = batch.to(device)
-        model.optimizer.zero_grad()
+        optimizer.zero_grad()
         out = model(
             x=batch.x,
             edge_index=batch.edge_index,
@@ -41,19 +31,19 @@ def train_network(model, train_loader, device):
             edge_attr=batch.edge_attr,
         )
         if model.problem_type == "classification":
-            loss = model.loss(out, batch.y.long())
+            loss = loss_fn(out, batch.y.long())
         elif model.problem_type == "regression":
-            loss = torch.sqrt(model.loss(out.squeeze(), batch.y.float()))
+            loss = torch.sqrt(loss_fn(out.squeeze(), batch.y.float()))
 
         loss.backward()
-        model.optimizer.step()
+        optimizer.step()
 
         train_loss += loss.item() * batch.num_graphs
 
     return train_loss / len(train_loader.dataset)
 
 
-def eval_network(model, loader, device):
+def eval_network(model, loader, device, loss_fn):
     model.eval()
     loss = 0
     with torch.no_grad():
@@ -61,10 +51,10 @@ def eval_network(model, loader, device):
             batch = batch.to(device)
             out = model(batch.x, batch.edge_index, batch.batch, batch.edge_attr)
             if model.problem_type == "classification":
-                loss += model.loss(out, batch.y.long()).item() * batch.num_graphs
+                loss += loss_fn(out, batch.y.long()).item() * batch.num_graphs
             elif model.problem_type == "regression":
                 loss += (
-                    torch.sqrt(model.loss(out.squeeze(), batch.y.float())).item()
+                    torch.sqrt(loss_fn(out.squeeze(), batch.y.float())).item()
                     * batch.num_graphs
                 )
     return loss / len(loader.dataset)
@@ -124,7 +114,7 @@ def calculate_metrics(
     return metrics
 
 
-def predict_network(model, loader, return_emb=False):
+def predict_network(model, loader):
     device = torch.device("cpu")
     model.to(device)
     model.eval()
@@ -168,27 +158,132 @@ def predict_network(model, loader, return_emb=False):
     return y_pred, y_true, idx, y_score
 
 
-def network_report(
-    exp_name,
-    loaders,
-    loss_lists,
-    save_all,
-    model,
-):
+def generate_embeddings(model, loader):
+    """
+    Generates a CSV file containing molecular embeddings from the trained model.
 
-    # 1) Create a directory to store the results
-    log_dir = exp_name / model.name / "results_model"
+    Args:
+        model (torch.nn.Module): Trained GNN model.
+        loader (torch_geometric.loader.DataLoader): DataLoader containing molecules.
+        save_path (str or Path, optional): Path to save the CSV file.
+
+    Returns:
+        pd.DataFrame: DataFrame containing embeddings with instances as rows and embedding features as columns.
+    """
+
+    device = torch.device("cpu")  # Run on CPU for inference
+    model.to(device)
+    model.eval()  # Set model to evaluation mode
+
+    embeddings_list = []
+    indices_list = []
+
+    # Iterate over batches in the DataLoader
+    for batch in loader:
+        batch = batch.to(device)
+
+        # Compute embeddings using the model
+        emb = model.return_embeddings(
+            x=batch.x,
+            edge_index=batch.edge_index,
+            batch_index=batch.batch,
+            edge_attr=batch.edge_attr,
+        )
+
+        # Convert embeddings to NumPy
+        emb_np = emb.cpu().detach().numpy()
+        embeddings_list.append(emb_np)
+
+        # Store molecule indices
+        indices_list.append(batch.idx)
+
+    # Concatenate all embeddings and indices
+    embeddings_array = np.concatenate(embeddings_list, axis=0)
+    indices_array = np.concatenate(indices_list, axis=0)
+
+    # Create a DataFrame
+    df = pd.DataFrame(
+        embeddings_array,
+        columns=[f"emb_{i}" for i in range(1, model.graph_embedding + 1)],
+    )
+    df.insert(0, "Molecule_ID", indices_array)  # Add molecule ID column
+
+    return df
+
+
+def evaluate_and_log(model, loader, set_name, log_dir, file, results, embeddings):
+    """
+    Helper function to evaluate the model on a dataset and log the results.
+    """
+    y_pred, y_true, idx, y_score = predict_network(model, loader)
+
+    new_embeddings = generate_embeddings(model, loader)
+    new_embeddings["Set"] = set_name
+
+    embeddings = pd.concat([embeddings, new_embeddings], ignore_index=True)
+
+    # Store results
+    new_results = pd.DataFrame(
+        {"y_true": y_true, "y_pred": y_pred, "idx": idx, "set": set_name}
+    )
+    results = pd.concat([results, new_results], ignore_index=True)
+
+    # Compute metrics
+    metrics = calculate_metrics(
+        y_true=y_true,
+        y_predicted=y_pred,
+        task=model.problem_type,
+        num_classes=model.num_classes,
+        y_score=y_score,
+    )
+
+    # Log performance
+    file.write(f"{set_name.capitalize()} set\n")
+    file.write(f"Set size = {len(y_true)}\n")
+
+    for name, value in metrics.items():
+        file.write(f"{name} = {value:.3f}\n")
+
+    file.write("***************\n")
+
+    # Generate plots
+    if model.problem_type == "classification":
+        plot_confusion_matrix(
+            y_true=y_true,
+            y_pred=y_pred,
+            title=f"{set_name.capitalize()} Set",
+            save_path=log_dir / f"Confusion_matrix_{set_name}.png",
+        )
+
+    return results, y_true, y_pred, idx, embeddings
+
+
+def network_report(
+    exp_name: str,
+    loaders: tuple,
+    loss_lists: list,
+    save_all: bool,
+    model: torch.nn.Module,
+    loss_fn: torch.nn.Module,
+    optimizer: str,
+    scheduler: str,
+):
+    """
+    Generates a report for a trained neural network, logging its performance
+    on train, validation, and test sets, and saving relevant data and plots.
+    """
+
+    # 1) Create the results directory
+    log_dir = Path(exp_name) / model.name / "results_model"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # 2) Time of the run
-    today = date.today()
-    today_str = str(today.strftime("%d-%b-%Y"))
-    time = str(datetime.now())[11:]
-    time = time[:8]
-    run_period = "{}, {}\n".format(today_str, time)
+    # 2) Log run time
+    today_str = date.today().strftime("%d-%b-%Y")
+    time_str = datetime.now().strftime("%H:%M:%S")
+    run_period = f"{today_str}, {time_str}\n"
 
-    # 3) Unfold loaders and save loaders and model
-    train_loader, val_loader, test_loader = loaders[0], loaders[1], loaders[2]
+    # 3) Extract loaders and dataset sizes
+    train_loader, val_loader, test_loader = loaders
     N_train, N_val, N_test = (
         len(train_loader.dataset),
         len(val_loader.dataset),
@@ -196,178 +291,88 @@ def network_report(
     )
     N_tot = N_train + N_test
 
-    if save_all == True:
+    # 4) Save loaders and model if needed
+    if save_all:
         torch.save(train_loader, log_dir / "train_loader.pth")
         torch.save(val_loader, log_dir / "val_loader.pth")
         torch.save(model, log_dir / "model.pth")
 
     torch.save(test_loader, log_dir / "test_loader.pth")
-    loss_function = str(model.loss)
 
-    # 4) loss trend during training
-    train_list = loss_lists[0]
-    val_list = loss_lists[1]
-    test_list = loss_lists[2]
-    lr_list = loss_lists[3]
+    # 5) Save loss trends
+    train_list, val_list, test_list, lr_list = loss_lists
 
-    if train_list is not None and test_list is not None:
-        with open(
-            log_dir / "learning_process.csv", "w", newline=""
-        ) as csvfile:
+    if train_list and test_list:
+        csv_path = log_dir / "learning_process.csv"
+        with open(csv_path, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(
                 [
                     "Epoch",
                     "Learning Rate",
-                    "Train_{}".format(loss_function),
-                    "Val_{}".format(loss_function),
-                    "Test_{}".format(loss_function),
+                    f"Train_{loss_fn}",
+                    f"Val_{loss_fn}",
+                    f"Test_{loss_fn}",
                 ]
             )
             for i in range(len(train_list)):
                 writer.writerow(
                     [i + 1, lr_list[i], train_list[i], val_list[i], test_list[i]]
                 )
-        create_training_plot(
-            df= log_dir / "learning_process.csv",
-            save_path=log_dir,
+
+        create_training_plot(df=csv_path, save_path=log_dir)
+
+    # 6) Start writing performance report
+    report_path = log_dir / "performance.txt"
+    with open(report_path, "w") as file:
+        file.write(run_period)
+        file.write("---------------------------------------------------------\n")
+        file.write("GNN TRAINING AND PERFORMANCE\n")
+        file.write(f"Model = {model.name}\n")
+        file.write(f"Loss function = {loss_fn}\n")
+        file.write(f"Optimizer = {optimizer}\n")
+        file.write(f"Scheduler = {scheduler}\n")
+        file.write(f"Dataset Size = {N_tot}\n")
+        file.write("***************\n")
+
+        results = pd.DataFrame(columns=["y_true", "y_pred", "idx", "set"])
+        embeddings = pd.DataFrame(
+            columns=["Molecule_ID"]
+            + ["Set"]
+            + [f"emb_{i}" for i in range(1, model.graph_embedding + 1)]
         )
 
-    # 5) Start writting report
-    file1 = open(log_dir / "performance.txt", "w")
-    file1.write(run_period)
-    file1.write("---------------------------------------------------------\n")
-    file1.write("GNN TRAINING AND PERFORMANCE\n")
-    file1.write("Dataset Size = {}\n".format(N_tot))
-    file1.write("***************\n")
-
-    results = pd.DataFrame(columns=["y_true", "y_pred", "idx", "set"])
-
-    y_pred, y_true, idx, y_score = predict_network(model, train_loader, True)
-    results = pd.DataFrame(
-        {"y_true": y_true, "y_pred": y_pred, "idx": idx, "set": "train"}
-    )
-
-    metrics = calculate_metrics(
-        y_true=y_true,
-        y_predicted=y_pred,
-        task=model.problem_type,
-        num_classes=model.num_classes,
-        y_score=y_score,
-    )
-
-    file1.write("Training set\n")
-    file1.write("Set size = {}\n".format(N_train))
-
-    for name, value in metrics.items():
-        file1.write("{} = {:.3f}\n".format(name, value))
-
-    if model.problem_type == "classification":
-        plot_confusion_matrix(
-            y_true=y_true,
-            y_pred=y_pred,
-            title="Train Set",
-            save_path= log_dir / "Confusion_matrix_train.png",
+        # Evaluate train, validation, and test sets
+        results, y_true_train, y_pred_train, idx_train, embeddings = evaluate_and_log(
+            model, train_loader, "train", log_dir, file, results, embeddings
         )
-        mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
-        if len(mispredicted) > 0:
-            file1.write("Mispredicted instances in train set:\n")
-            for index in mispredicted:
-                file1.write(
-                    "Mispredicted index = {}. Real Value: {}. Predicted Value: {}.\n".format(
-                        idx[index], y_true[index], y_pred[index]
+        results, y_true_val, y_pred_val, idx_val, embeddings = evaluate_and_log(
+            model, val_loader, "val", log_dir, file, results, embeddings
+        )
+        results, y_true_test, y_pred_test, idx_test, embeddings = evaluate_and_log(
+            model, test_loader, "test", log_dir, file, results, embeddings
+        )
+
+        # Handle regression parity plots
+        if model.problem_type == "regression":
+            create_parity_plot(results, log_dir)
+
+        # Save results
+        results.to_csv(log_dir / "predictions.csv", index=False)
+        embeddings.to_csv(log_dir / "embeddings.csv", index=False)
+
+        # Handle mispredictions for classification
+        if model.problem_type == "classification":
+            mispredicted = [
+                i for i in range(len(y_true_test)) if y_true_test[i] != y_pred_test[i]
+            ]
+            if mispredicted:
+                file.write("Mispredicted instances in test set:\n")
+                for index in mispredicted:
+                    file.write(
+                        f"Mispredicted index = {idx_test[index]}. Real Value: {y_true_test[index]}. Predicted Value: {y_pred_test[index]}.\n"
                     )
-                )
 
-    file1.write("***************\n")
+        file.write("---------------------------------------------------------\n")
 
-    y_pred, y_true, idx, y_score = predict_network(model, val_loader, True)
-    results = results.append(
-        pd.DataFrame({"y_true": y_true, "y_pred": y_pred, "idx": idx, "set": "val"})
-    )
-
-    metrics = calculate_metrics(
-        y_true=y_true,
-        y_predicted=y_pred,
-        task=model.problem_type,
-        num_classes=model.num_classes,
-        y_score=y_score,
-    )
-
-    file1.write("Validation set\n")
-    file1.write("Set size = {}\n".format(N_val))
-
-    for name, value in metrics.items():
-        file1.write("{} = {:.3f}\n".format(name, value))
-
-    if model.problem_type == "classification":
-        plot_confusion_matrix(
-            y_true=y_true,
-            y_pred=y_pred,
-            title="Validation Set",
-            save_path= log_dir / "Confusion_matrix_validation.png",
-        )
-
-        mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
-        if len(mispredicted) > 0:
-            file1.write("Mispredicted instances in train set:\n")
-            for index in mispredicted:
-                file1.write(
-                    "Mispredicted index = {}. Real Value: {}. Predicted Value: {}.\n".format(
-                        idx[index], y_true[index], y_pred[index]
-                    )
-                )
-
-    file1.write("***************\n")
-
-    y_pred, y_true, idx, y_score = predict_network(model, test_loader, True)
-    results = results.append(
-        pd.DataFrame({"y_true": y_true, "y_pred": y_pred, "idx": idx, "set": "test"})
-    )
-
-    if model.problem_type == "regression":
-        create_parity_plot(results, log_dir)
-
-    # plot_tsne_with_subsets(data_df=emb_all, feature_columns=[i for i in range(128)], color_column='ddG_exp', set_column='set', fig_name='tsne_emb_exp', save_path=log_dir)
-    # emb_all.to_csv("{}/embeddings.csv".format(log_dir))
-
-    results.to_csv("{}/predictions.csv".format(log_dir))
-
-    file1.write("Test set\n")
-    file1.write("Set size = {}\n".format(N_test))
-
-    metrics = calculate_metrics(
-        y_true=y_true,
-        y_predicted=y_pred,
-        task=model.problem_type,
-        num_classes=model.num_classes,
-        y_score=y_score,
-    )
-
-    for name, value in metrics.items():
-        file1.write("{} = {:.3f}\n".format(name, value))
-
-    file1.write("---------------------------------------------------------\n")
-
-    if model.problem_type == "classification":
-        plot_confusion_matrix(
-            y_true=y_true,
-            y_pred=y_pred,
-            title="Test Set",
-            save_path= log_dir / "Confusion_matrix_test.png",
-        )
-        mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
-        if len(mispredicted) > 0:
-            file1.write("Mispredicted instances in test set:\n")
-            for index in mispredicted:
-                file1.write(
-                    "Mispredicted index = {}. Real Value: {}. Predicted Value: {}.\n".format(
-                        idx[index], y_true[index], y_pred[index]
-                    )
-                )
-
-    # create_st_parity_plot(real = y_true, predicted = y_pred, figure_name = 'outer_{}_inner_{}'.format(outer, inner), save_path = "{}".format(log_dir))
-
-    file1.close()
-
-    return "Report saved in {}".format(log_dir)
+    return f"Report saved in {log_dir}"

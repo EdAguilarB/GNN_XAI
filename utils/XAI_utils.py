@@ -1,10 +1,8 @@
-import ast
 import json
 import os
 import statistics
 from datetime import datetime
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -18,11 +16,13 @@ from torch_geometric.explain import CaptumExplainer, Explainer, GNNExplainer
 from torch_geometric.explain.metric import groundtruth_metrics
 from tqdm import tqdm
 
-from utils.plot_utils import create_mol_plot2, draw_molecule_with_similarity_map
+from utils.plot_utils import (create_mol_plot2,
+                              draw_molecule_with_similarity_map)
 
 
-def calculate_attributions(opt, loader, XAI_algorithm="all", set="train"):
-    exp_dir = f"{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_model"
+def calculate_attributions(exp_path, loader, XAI_algorithm="all", set="train"):
+
+    exp_dir = exp_path / "results_model"
 
     device = torch.device("cpu")
 
@@ -68,9 +68,7 @@ def calculate_attributions(opt, loader, XAI_algorithm="all", set="train"):
         print(f"Runing {name} analysis")
 
         algo_dict = {}
-        algo_path = (
-            f"{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_XAI/{name}"
-        )
+        algo_path = exp_path / "results_XAI" / name
         # Reload the model for each algorithm
         # Initialize the explainer
         explainer = Explainer(
@@ -86,21 +84,23 @@ def calculate_attributions(opt, loader, XAI_algorithm="all", set="train"):
             ),
         )
 
-        if os.path.exists(f"{algo_path}/node_masks_{set}_raw.json"):
+        # Load previously calculated node masks if they exist
+        masks_path = algo_path / f"node_masks_{set}_raw.json"
+
+        if masks_path.exists():
             print("Loading previously calculated node masks")
-            with open(f"{algo_path}/node_masks_{set}_raw.json") as f:
+            with open(masks_path) as f:
                 attrs_mols = json.load(f)
         else:
             attrs_mols = None
-            os.makedirs(algo_path, exist_ok=True)
+            # masks_path.mkdir(parents=True, exist_ok=True)
+            algo_path.mkdir(parents=True, exist_ok=True)
 
         for mol in tqdm(loader):
             model = torch.load(
-                f"{exp_dir}/model.pth", map_location=torch.device("cpu")
+                exp_dir / "model.pth", map_location=torch.device("cpu")
             ).to(device)
             mol.to(device)
-            smiles = mol.smiles[0]
-            smarts = mol.smarts[0]
             idx = mol.idx[0]
 
             # Generate explanations
@@ -127,15 +127,16 @@ def calculate_attributions(opt, loader, XAI_algorithm="all", set="train"):
             node_masks[mol_key][name] = node_mask.detach().numpy().tolist()
             algo_dict[mol_key] = node_mask.detach().numpy().tolist()
 
-        with open(f"{algo_path}/node_masks_{set}_raw.json", "w") as f:
+        with open(masks_path, "w") as f:
             json.dump(algo_dict, f, indent=4)
 
     return node_masks
 
 
-def get_attrs_atoms(data, opt, max_min_vals=None, max_atom_val=None):
+def get_attrs_atoms(data, XAI_attrs_mode, max_min_vals=None, max_atom_val=None):
 
     if not max_min_vals:
+        # Get the maximum and minimum values of the attributions
         max_min_vals = {}
         for outer_key, outer_value in data.items():
             for inner_key, inner_value in outer_value.items():
@@ -162,7 +163,7 @@ def get_attrs_atoms(data, opt, max_min_vals=None, max_atom_val=None):
         outer_value,
     ) in data.items():  # over dictionary containing the mol id and the attributions
 
-        dir, mag = None, None  # initialize variables to store the attributions
+        direction, mag = None, None  # initialize variables to store the attributions
 
         for (
             inner_key,
@@ -185,35 +186,37 @@ def get_attrs_atoms(data, opt, max_min_vals=None, max_atom_val=None):
                 else:
                     mag += value  # if mag is not None, add the value to mag
             else:
-                if not isinstance(dir, np.ndarray):
-                    dir = value  # if dir is None, assign the value to dir
+                if not isinstance(direction, np.ndarray):
+                    direction = value  # if dir is None, assign the value to dir
                 else:
-                    dir += value  # if dir is not None, add the value to dir
+                    direction += value  # if dir is not None, add the value to dir
 
-        if dir is not None:  # for cases where only positive values are present
+        if direction is not None:  # for cases where only positive values are present
 
-            if opt.XAI_attrs_mode == "directional":
+            if XAI_attrs_mode == "directional":
                 # this will get the direction that each feature is pointing to. Then,
                 # get the absolute values of importance and add them to the attributions
                 # of the GNNExplainer and Saliency. Lastly, multiply the attributions by
                 # the sign in the original attributions to get the direction of the attributions
 
-                sign = np.sign(dir)  # get the sign of the attributions
-                dir = np.abs(dir)  # get the magnitud of the attributions
+                sign = np.sign(direction)  # get the sign of the attributions
+                direction = np.abs(direction)  # get the magnitud of the attributions
 
                 mag = (
                     mag if mag is not None else 0
-                ) + dir  # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
+                ) + direction  # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
                 mag = (
                     mag * sign
                 )  # multiply the attributions by the sign to get the direction of the attributions
 
-            elif opt.XAI_attrs_mode == "absolute":
-                dir = np.where(dir < 0, 0, dir)  # set the negative attributions to 0
-                # dir = np.abs(dir)
+            elif XAI_attrs_mode == "absolute":
+                direction = np.where(
+                    direction < 0, 0, direction
+                )  # set the negative attributions to 0
+                # direction = np.abs(direction)
                 mag = (
                     mag if mag is not None else 0
-                ) + dir  # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
+                ) + direction  # add the magnitud of the attributions to the attributions of the GNNExplainer and Saliency
 
         # TODO - check if the sum is the best way to combine the attributions
         # TODO - separate the scores in different families of node features eg. atom type, atom degree, etc.
@@ -239,11 +242,11 @@ def get_attrs_atoms(data, opt, max_min_vals=None, max_atom_val=None):
     return mol_attrs, max_min_vals, max_atom_val
 
 
-def get_smarts_mols(loader, opt):
+def get_smarts_mols(loader, XAI_mode):
 
     mol_smarts = {}
 
-    if opt.XAI_mode == "evaluate":
+    if XAI_mode == "evaluate":
         for mol in loader:
             if isinstance(mol.smarts[0], list):
                 mol_smarts[mol.idx[0]] = {
@@ -252,7 +255,7 @@ def get_smarts_mols(loader, opt):
                 }
             else:
                 continue
-    elif opt.XAI_mode == "get_importance":
+    elif XAI_mode == "get_importance":
         for mol in loader:
             mol_smarts[mol.idx[0]] = {"smiles": mol.smiles[0]}
 
@@ -260,17 +263,31 @@ def get_smarts_mols(loader, opt):
 
 
 def calculate_XAI_metrics(
-    opt, mol_attrs, mol_smiles, threshold=0.5, save_results=True, logdir=None
+    experiment_dir,
+    mol_attrs,
+    mol_smiles,
+    threshold=0.5,
+    save_results=True,
+    logdir=None,
+    XAI_attrs_mode="directional",
 ):
     # Calculate the metrics for the XAI
-
     if logdir:
-        exp_dir = f"{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_model"
-        preds = pd.read_csv(f"{exp_dir}/predictions_test_set.csv", index_col=0)
-        preds["index"] = preds["index"].astype(str)
+        exp_dir = experiment_dir / "results_model"
+        preds = pd.read_csv(exp_dir / "predictions.csv", index_col=0)
+        preds = preds.loc[preds["set"] == "test"]
+
+        preds["idx"] = preds["idx"].astype(str)
+
         os.makedirs(
-            os.path.join(logdir, "mols", "low_acc", "correct_pred"), exist_ok=True
+            os.path.join(logdir, "mols", "low_acc", "correct_pred", "true_positive"),
+            exist_ok=True,
         )
+        os.makedirs(
+            os.path.join(logdir, "mols", "low_acc", "correct_pred", "true_negative"),
+            exist_ok=True,
+        )
+
         os.makedirs(
             os.path.join(logdir, "mols", "low_acc", "incorrect_pred", "false_negative"),
             exist_ok=True,
@@ -279,9 +296,16 @@ def calculate_XAI_metrics(
             os.path.join(logdir, "mols", "low_acc", "incorrect_pred", "false_positive"),
             exist_ok=True,
         )
+
         os.makedirs(
-            os.path.join(logdir, "mols", "high_acc", "correct_pred"), exist_ok=True
+            os.path.join(logdir, "mols", "high_acc", "correct_pred", "true_positive"),
+            exist_ok=True,
         )
+        os.makedirs(
+            os.path.join(logdir, "mols", "high_acc", "correct_pred", "true_negative"),
+            exist_ok=True,
+        )
+
         os.makedirs(
             os.path.join(
                 logdir, "mols", "high_acc", "incorrect_pred", "false_negative"
@@ -368,37 +392,43 @@ def calculate_XAI_metrics(
                 print(f"Mol {idx} not being plot")
                 continue
 
-            mol_y = preds.loc[preds["index"] == idx]
+            mol_y = preds.loc[preds["idx"] == idx]
             y_true = mol_y.iloc[0, 0]
             y_pred = mol_y.iloc[0, 1]
 
             if y_true == y_pred:
-                pred_dir = "correct_pred"
+                if y_true == 1:
+                    pred_dir = "correct_pred/true_positive"
+                elif y_true == 0:
+                    pred_dir = "correct_pred/true_negative"
+                else:
+                    raise ValueError("Invalid class label {}".format(y_true))
             else:
-                if y_true == 1 or y_true == 2:
+                if y_true == 1:
                     pred_dir = "incorrect_pred/false_negative"
-                elif y_pred == 1 or y_pred == 2:
+                elif y_true == 0:
                     pred_dir = "incorrect_pred/false_positive"
+                else:
+                    raise ValueError("Invalid class label {}".format(y_true))
 
-            mol_plot_dir = f"{logdir}/mols/{acc_dir}/{pred_dir}/{idx}.png"
+            mol_plot_dir = logdir / "mols" / acc_dir / pred_dir / f"{idx}.png"
             create_mol_plot2(smiles, pred_imp, indexes, mol_plot_dir)
 
     if save_results:
-        with open(f"{logdir}/metrics_{opt.XAI_attrs_mode}.json", "w") as f:
+        with open(logdir / f"metrics_{XAI_attrs_mode}.json", "w") as f:
             json.dump(acc_mols, f, indent=4)
 
     return acc_mols
 
 
-def create_XAI_report(opt, best_threshold, threshold_results, results_test, exp_dir):
+def create_XAI_report(
+    best_threshold, threshold_results, results_test, exp_dir, XAI_attrs_mode
+):
     report_lines = []
 
     # Experiment Summary
-    report_lines.append(f"Experiment Report: {opt.network_name} Evaluation\n")
+
     report_lines.append(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report_lines.append(f"Model: {opt.network_name}")
-    report_lines.append(f"Dataset: {opt.filename}")
-    report_lines.append(f"Random Seed: {opt.global_seed}\n")
 
     # Threshold Optimization
     report_lines.append("Threshold Optimization:")
@@ -436,7 +466,7 @@ def create_XAI_report(opt, best_threshold, threshold_results, results_test, exp_
     )
 
     # Write report to file
-    report_path = os.path.join(exp_dir, f"experiment_report_{opt.XAI_attrs_mode}.txt")
+    report_path = exp_dir / f"experiment_report_{XAI_attrs_mode}.txt"
     with open(report_path, "w") as report_file:
         report_file.write("\n".join(report_lines))
 
@@ -444,7 +474,7 @@ def create_XAI_report(opt, best_threshold, threshold_results, results_test, exp_
 
 
 def find_hot_spots(
-    opt, mol_attrs, mol_smiles, threshold=0.5, save_results=True, logdir=None
+    mol_attrs, mol_smiles, XAI_attrs_mode, threshold=0.5, save_results=True, logdir=None
 ):
     """
     Find the most frequent SMARTS patterns identified as important based on attributions.
@@ -461,7 +491,7 @@ def find_hot_spots(
         frequent_smarts: Dictionary of SMARTS patterns and their frequencies.
     """
     if logdir:
-        os.makedirs(logdir, exist_ok=True)
+        logdir.mkdir(parents=True, exist_ok=True)
 
     # Dictionary to count SMARTS occurrences
     smarts_counts = {}
@@ -512,7 +542,7 @@ def find_hot_spots(
 
         df = reduce_df(df)
         df.to_csv(
-            os.path.join(logdir, f"frequent_smarts_{opt.XAI_attrs_mode}.csv"),
+            os.path.join(logdir, f"frequent_smarts_{XAI_attrs_mode}.csv"),
             index=False,
         )
 
@@ -520,7 +550,7 @@ def find_hot_spots(
 
 
 def find_substructures(
-    opt, mol_attrs, mol_smiles, threshold=0.5, save_results=True, logdir=None
+    mol_attrs, mol_smiles, XAI_attrs_mode, threshold=0.5, save_results=True, logdir=None
 ):
     """
     Find the most frequent SMARTS patterns identified as important based on connected fragments of important atoms.
@@ -615,7 +645,7 @@ def find_substructures(
         df = reduce_df(df)
 
         df.to_csv(
-            os.path.join(logdir, f"frequent_smarts_{opt.XAI_attrs_mode}.csv"),
+            os.path.join(logdir, f"frequent_smarts_{XAI_attrs_mode}.csv"),
             index=False,
         )
 
