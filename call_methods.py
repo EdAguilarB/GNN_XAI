@@ -10,8 +10,6 @@ def make_network(
     n_classes: int,
     problem_type: str,
     global_seed: int,
-    optimizer: str,
-    scheduler: str,
     **kwargs,
 ):
 

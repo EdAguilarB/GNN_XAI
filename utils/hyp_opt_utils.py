@@ -95,8 +95,6 @@ def train_model_ray(
         n_classes=n_classes,
         problem_type=problem_type,
         global_seed=global_seed,
-        optimizer=optimizer,
-        scheduler=scheduler,
         **config,
     ).to(device)
 
