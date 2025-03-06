@@ -1,39 +1,29 @@
-from pathlib import Path
 import csv
 import os
 from datetime import date, datetime
 from math import sqrt
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from icecream import ic
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    precision_score,
-    r2_score,
-    recall_score,
-    roc_auc_score,
-)
+from sklearn.metrics import (accuracy_score, f1_score, mean_absolute_error,
+                             mean_absolute_percentage_error, precision_score,
+                             r2_score, recall_score, roc_auc_score)
 
-from utils.plot_utils import (
-    create_parity_plot,
-    create_training_plot,
-    plot_confusion_matrix,
-)
+from utils.plot_utils import (create_parity_plot, create_training_plot,
+                              plot_confusion_matrix)
 
 
-def train_network(model, train_loader, device):
+def train_network(model, train_loader, device, loss_fn, optimizer):
 
     train_loss = 0
     model.train()
 
     for batch in train_loader:
         batch = batch.to(device)
-        model.optimizer.zero_grad()
+        optimizer.zero_grad()
         out = model(
             x=batch.x,
             edge_index=batch.edge_index,
@@ -41,19 +31,19 @@ def train_network(model, train_loader, device):
             edge_attr=batch.edge_attr,
         )
         if model.problem_type == "classification":
-            loss = model.loss(out, batch.y.long())
+            loss = loss_fn(out, batch.y.long())
         elif model.problem_type == "regression":
-            loss = torch.sqrt(model.loss(out.squeeze(), batch.y.float()))
+            loss = torch.sqrt(loss_fn(out.squeeze(), batch.y.float()))
 
         loss.backward()
-        model.optimizer.step()
+        optimizer.step()
 
         train_loss += loss.item() * batch.num_graphs
 
     return train_loss / len(train_loader.dataset)
 
 
-def eval_network(model, loader, device):
+def eval_network(model, loader, device, loss_fn):
     model.eval()
     loss = 0
     with torch.no_grad():
@@ -61,10 +51,10 @@ def eval_network(model, loader, device):
             batch = batch.to(device)
             out = model(batch.x, batch.edge_index, batch.batch, batch.edge_attr)
             if model.problem_type == "classification":
-                loss += model.loss(out, batch.y.long()).item() * batch.num_graphs
+                loss += loss_fn(out, batch.y.long()).item() * batch.num_graphs
             elif model.problem_type == "regression":
                 loss += (
-                    torch.sqrt(model.loss(out.squeeze(), batch.y.float())).item()
+                    torch.sqrt(loss_fn(out.squeeze(), batch.y.float())).item()
                     * batch.num_graphs
                 )
     return loss / len(loader.dataset)
@@ -211,9 +201,7 @@ def network_report(
     lr_list = loss_lists[3]
 
     if train_list is not None and test_list is not None:
-        with open(
-            log_dir / "learning_process.csv", "w", newline=""
-        ) as csvfile:
+        with open(log_dir / "learning_process.csv", "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(
                 [
@@ -229,7 +217,7 @@ def network_report(
                     [i + 1, lr_list[i], train_list[i], val_list[i], test_list[i]]
                 )
         create_training_plot(
-            df= log_dir / "learning_process.csv",
+            df=log_dir / "learning_process.csv",
             save_path=log_dir,
         )
 
@@ -267,7 +255,7 @@ def network_report(
             y_true=y_true,
             y_pred=y_pred,
             title="Train Set",
-            save_path= log_dir / "Confusion_matrix_train.png",
+            save_path=log_dir / "Confusion_matrix_train.png",
         )
         mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
         if len(mispredicted) > 0:
@@ -305,7 +293,7 @@ def network_report(
             y_true=y_true,
             y_pred=y_pred,
             title="Validation Set",
-            save_path= log_dir / "Confusion_matrix_validation.png",
+            save_path=log_dir / "Confusion_matrix_validation.png",
         )
 
         mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
@@ -354,7 +342,7 @@ def network_report(
             y_true=y_true,
             y_pred=y_pred,
             title="Test Set",
-            save_path= log_dir / "Confusion_matrix_test.png",
+            save_path=log_dir / "Confusion_matrix_test.png",
         )
         mispredicted = [i for i in range(len(y_true)) if y_true[i] != y_pred[i]]
         if len(mispredicted) > 0:
