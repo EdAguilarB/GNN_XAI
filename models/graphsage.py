@@ -119,3 +119,5 @@ class graphsage(BaseNetwork):
             x = gsp(x, batch_index)
         elif self.pooling == "mean/max":
             x = torch.cat([gmp(x, batch_index), gap(x, batch_index)], dim=1)
+
+        return x
