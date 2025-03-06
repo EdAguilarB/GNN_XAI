@@ -14,24 +14,46 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.append(parent_dir)
 
-from call_methods import make_network
+from call_methods import (make_loss, make_network, make_optimizer,
+                          make_scheduler)
 from data.mol_instance import molecular_graph
 from options.base_options import BaseOptions
 from utils.model_utils import eval_network, network_report, train_network
 
 
-def train_model(opt):
+def train_model(
+    filename,
+    root,
+    mol_cols,
+    set_col,
+    target_variable,
+    id_col,
+    network_name,
+    exp_name,
+    global_seed,
+    problem_type,
+    n_classes,
+    optimizer,
+    scheduler,
+):
 
     # Set the device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the dataset
-    mols = molecular_graph(opt=opt, filename=opt.filename, root=opt.root)
+    mols = molecular_graph(
+        filename=filename,
+        root=root,
+        mol_cols=mol_cols,
+        set_col=set_col,
+        target_variable=target_variable,
+        id_col=id_col,
+    )
 
     json_file = (
-        Path(opt.exp_name)
-        / opt.filename[:-4]
-        / opt.network_name
+        Path(exp_name)
+        / filename[:-4]
+        / network_name
         / "results_hyp_opt"
         / "best_hyperparameters.json"
     )
@@ -42,13 +64,13 @@ def train_model(opt):
     print(f"Using hyperparameters: {hyp}")
 
     train_indices = [i for i, s in enumerate(mols.set) if s == "train"]
-    stratified = mols.y[train_indices] if opt.problem_type == "classification" else None
+    stratified = mols.y[train_indices] if problem_type == "classification" else None
     val_indices = [i for i, s in enumerate(mols.set) if s == "val"]
     if len(val_indices) == 0:
         train_indices, val_indices = train_test_split(
             train_indices,
             test_size=0.2,
-            random_state=opt.global_seed,
+            random_state=global_seed,
             stratify=stratified,
         )
     test_indices = [i for i, s in enumerate(mols.set) if s == "test"]
@@ -68,12 +90,28 @@ def train_model(opt):
 
     # Make the network
     model = make_network(
-        network_name=opt.network_name,
-        opt=opt,
+        network_name=network_name,
         n_node_features=mols.num_node_features,
         n_edge_features=mols.num_edge_features,
+        n_classes=n_classes,
+        problem_type=problem_type,
+        global_seed=global_seed,
         **hyp,
     ).to(device)
+
+    loss_fn = make_loss(problem_type=problem_type)
+
+    optimizer_fn = make_optimizer(
+        optimizer=optimizer, model=model, lr=hyp.pop("lr")
+    )
+
+    scheduler_fn = make_scheduler(
+        scheduler=scheduler,
+        optimizer=optimizer_fn,
+        step_size=hyp.pop("step_size"),
+        gamma=hyp.pop("gamma"),
+        min_lr=hyp.pop("min_lr"),
+    )
 
     if model.kwargs:
         unused_params = list(model.kwargs.keys())
@@ -88,15 +126,25 @@ def train_model(opt):
 
     for epoch in range(1, epochs + 1):
 
-        lr = model.scheduler.optimizer.param_groups[0]["lr"]
+        lr = scheduler_fn.optimizer.param_groups[0]["lr"]
 
-        train_loss = train_network(model=model, train_loader=train_set, device=device)
+        train_loss = train_network(
+            model=model,
+            train_loader=train_set,
+            device=device,
+            loss_fn=loss_fn,
+            optimizer=optimizer_fn,
+        )
 
-        val_loss = eval_network(model=model, loader=val_set, device=device)
+        val_loss = eval_network(
+            model=model, loader=val_set, device=device, loss_fn=loss_fn
+        )
 
-        test_loss = eval_network(model=model, loader=test_set, device=device)
+        test_loss = eval_network(
+            model=model, loader=test_set, device=device, loss_fn=loss_fn
+        )
 
-        model.scheduler.step(val_loss)
+        scheduler_fn.step(val_loss)
 
         print(
             "Epoch {:03d} | LR: {:.5f} | Train loss: {:.3f} | Val loss: {:.3f} | Test loss: {:.3f}".format(
@@ -128,11 +176,14 @@ def train_model(opt):
 
     model.load_state_dict(best_model_state)
     network_report(
-        exp_name=Path(opt.exp_name) / mols.filename[:-4],
+        exp_name=Path(exp_name) / mols.filename[:-4],
         loaders=(train_set, val_set, test_set),
         loss_lists=(train_list, val_list, test_list, lr_list),
         save_all=True,
         model=model,
+        loss_fn=loss_fn,
+        optimizer=optimizer,
+        scheduler=scheduler,
     )
 
 
