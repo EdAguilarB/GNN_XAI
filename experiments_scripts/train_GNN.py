@@ -1,14 +1,22 @@
+from pathlib import Path
 import torch
+import os, sys
 from torch_geometric.loader import DataLoader
-from utils.model_utils import train_network, eval_network, network_report
-from data.mol_instance import molecular_graph
-from call_methods import make_network
 from sklearn.model_selection import train_test_split
 import json
 from copy import deepcopy
 import warnings
-from options.base_options import BaseOptions
 from icecream import ic
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(parent_dir)
+
+from utils.model_utils import train_network, eval_network, network_report
+from data.mol_instance import molecular_graph
+from options.base_options import BaseOptions
+from call_methods import make_network
+
 
 def train_model(opt):
 
@@ -18,15 +26,19 @@ def train_model(opt):
     # Load the dataset
     mols = molecular_graph(opt = opt, filename = opt.filename, root = opt.root)
 
-    with open(f'{opt.exp_name}/{opt.filename[:-4]}/{opt.network_name}/results_hyp_opt/best_hyperparameters.json') as f:
+    json_file = Path(opt.exp_name) / opt.filename[:-4] / opt.network_name / 'results_hyp_opt' / 'best_hyperparameters.json'
+
+    with open(json_file) as f:
         hyp = json.load(f)
 
     print(f'Using hyperparameters: {hyp}')
 
-    
+
     train_indices = [i for i, s in enumerate(mols.set) if s == 'train']
     stratified = mols.y[train_indices] if opt.problem_type == 'classification' else None
-    train_indices, val_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed, stratify=stratified)
+    val_indices = [i for i, s in enumerate(mols.set) if s == 'val']
+    if len(val_indices) == 0:
+        train_indices, val_indices = train_test_split(train_indices, test_size=0.2, random_state=opt.global_seed, stratify=stratified)
     test_indices = [i for i, s in enumerate(mols.set) if s == 'test']
 
     train_dataset = mols[train_indices]
@@ -43,16 +55,16 @@ def train_model(opt):
     test_set = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Make the network
-    model = make_network(network_name=opt.network_name, 
-                         opt=opt, 
-                         n_node_features=mols.num_node_features, 
+    model = make_network(network_name=opt.network_name,
+                         opt=opt,
+                         n_node_features=mols.num_node_features,
                          n_edge_features=mols.num_edge_features,
                          **hyp).to(device)
-    
+
     if model.kwargs:
         unused_params = list(model.kwargs.keys())
         warnings.warn(f"Not all hyperparameters have been used: {unused_params}", UserWarning)
-    
+
     train_list, val_list, test_list, lr_list = [], [], [], []
 
     best_val_loss = float('inf')
@@ -63,31 +75,30 @@ def train_model(opt):
 
         lr = model.scheduler.optimizer.param_groups[0]['lr']
 
-        train_loss = train_network(model = model, 
-                                   train_loader=train_set, 
+        train_loss = train_network(model = model,
+                                   train_loader=train_set,
                                    device=device)
-        
+
         val_loss = eval_network(model = model,
                                 loader=val_set,
                                 device=device)
-        
-        
+
+
         test_loss = eval_network(model = model,
                                 loader=test_set,
                                 device=device)
-        
+
         model.scheduler.step(val_loss)
-        
+
         print('Epoch {:03d} | LR: {:.5f} | Train loss: {:.3f} | Val loss: {:.3f} | Test loss: {:.3f}'.format(epoch, lr, train_loss, val_loss, test_loss))
 
         train_list.append(train_loss)
         val_list.append(val_loss)
         test_list.append(test_loss)
         lr_list.append(lr)
-    
+
         if epoch % 5 == 0:
 
-            
             # Save the best model
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
@@ -106,7 +117,7 @@ def train_model(opt):
 
     model.load_state_dict(best_model_state)
     network_report(
-                exp_name=f'{opt.exp_name}/{mols.filename[:-4]}',
+                exp_name=Path(opt.exp_name) / mols.filename[:-4],
                 loaders=(train_set, val_set, test_set),
                 loss_lists=(train_list, val_list, test_list, lr_list),
                 save_all=True,

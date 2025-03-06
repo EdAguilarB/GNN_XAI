@@ -19,17 +19,17 @@ class GCN(BaseNetwork):
             setattr(self, param, self.kwargs.pop(param))
 
         # Set network architecture
-        
+
         #First convolution and activation function
         self.linear = nn.Linear(n_node_features,self.embedding_dim,)
         self.batch_norm = nn.BatchNorm1d(self.embedding_dim)
-        
+
         #Convolutions
         self.conv_layers = nn.ModuleList([])
         self.norm_layers = nn.ModuleList([])
 
         for _ in range(self.n_convolutions):
-            self.conv_layers.append(GCNConv(self.embedding_dim, 
+            self.conv_layers.append(GCNConv(self.embedding_dim,
                                             self.embedding_dim,
                                             improved=self.improved))
             self.norm_layers.append(nn.BatchNorm1d(self.embedding_dim))
@@ -44,18 +44,18 @@ class GCN(BaseNetwork):
 
         for _ in range(self.readout_layers-1):
             reduced_dim = int(graph_embedding/2)
-            self.readout.append(nn.Sequential(nn.Linear(graph_embedding, reduced_dim), 
+            self.readout.append(nn.Sequential(nn.Linear(graph_embedding, reduced_dim),
                                               nn.BatchNorm1d(reduced_dim),
                                               ))
             graph_embedding = reduced_dim
 
         #Final readout layer
         self.output_layer = nn.Linear(graph_embedding, self.n_classes)
-        
+
         self._make_loss()
         self._make_optimizer(opt.optimizer)
         self._make_scheduler(scheduler=opt.scheduler,)
-        
+
     def forward(self, x, edge_index, batch_index=None, edge_attr=None):
 
 
@@ -71,17 +71,17 @@ class GCN(BaseNetwork):
         elif self.pooling == 'sum':
             x = gsp(x, batch_index)
         elif self.pooling == 'mean/max':
-            x = torch.cat([gmp(x, batch_index), 
+            x = torch.cat([gmp(x, batch_index),
                                 gap(x, batch_index)], dim=1)
-        
+
         x = self.dropout_layer(x)
-        
+
         for layer in self.readout:
             x = F.leaky_relu(layer(x))
-        
+
         x = self.output_layer(x)
 
         if self.n_classes == 1:
-            x = x.float().squeeze()
+            x = x.float()
 
         return x

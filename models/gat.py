@@ -86,6 +86,6 @@ class GAT(BaseNetwork):
         x = self.output_layer(x)
 
         if self.n_classes == 1:
-            x = x.float().squeeze()
+            x = x.float()
 
         return x

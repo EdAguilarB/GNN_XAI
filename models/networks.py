@@ -5,7 +5,7 @@ from torch_geometric.seed import seed_everything
 
 
 class BaseNetwork(nn.Module):
-    
+
     def __init__(self, opt: argparse.Namespace, n_node_features:int, n_edge_features, **kwargs):
 
         super().__init__()
@@ -20,10 +20,10 @@ class BaseNetwork(nn.Module):
         for param in base_params:
             setattr(self, param, kwargs.pop(param))
 
-        self.kwargs = kwargs    
+        self.kwargs = kwargs
 
         self.n_classes = opt.n_classes
-        
+
         self.problem_type = opt.problem_type
         self.num_classes = opt.n_classes
         self._seed_everything(opt.global_seed)
@@ -35,11 +35,11 @@ class BaseNetwork(nn.Module):
 
     def forward(self):
         raise NotImplementedError
-    
+
     @property
     def name(self):
         return self._name
-    
+
     def _make_loss(self,  mae=None):
         if self.problem_type == "classification":
             self.loss = nn.CrossEntropyLoss()
@@ -47,7 +47,7 @@ class BaseNetwork(nn.Module):
             self.loss = nn.MSELoss()
         else:
             raise ValueError(f"Problem type {self.problem_type} not supported")
-        
+
     def _make_optimizer(self, optimizer):
         if optimizer == "Adam":
             self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, eps=1e-9)
@@ -57,7 +57,7 @@ class BaseNetwork(nn.Module):
             self.optimizer = torch.optim.RMSprop(self.parameters(), lr=self.lr)
         else:
             raise NotImplementedError(f"Optimizer type {optimizer} not implemented")
-        
+
     def _make_scheduler(self, scheduler,):
         if scheduler == "StepLR":
             self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.step_size, gamma=self.gamma)
@@ -69,7 +69,7 @@ class BaseNetwork(nn.Module):
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=self.step_size, min_lr=self.min_lr)
         else:
             raise NotImplementedError(f"Scheduler type {scheduler} not implemented")
-        
+
     def _seed_everything(self, seed):
         seed_everything(seed)
         torch.cuda.manual_seed(seed)

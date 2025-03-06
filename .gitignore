@@ -169,3 +169,4 @@ smarts_importance.ipynb
 results/
 trials.py
 run.sh
+.DS_Store

@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import torch
 from torch_geometric.data import  Data
-import numpy as np 
+import numpy as np
 from rdkit import Chem
 import os
 from tqdm import tqdm
@@ -18,21 +18,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class molecular_graph(mol_graph_dataset):
 
-    def __init__(self, opt:argparse.Namespace, filename: str, root: str = None, include_fold = False) -> None:
+    def __init__(self, opt:argparse.Namespace, filename: str, root: str = None) -> None:
 
-        self._include_fold = include_fold
 
-        if self._include_fold:
-            try:
-                file_folds = filename[:-4] + '_folds' + filename[-4:]
-                pd.read_csv(os.path.join(root, 'raw', f'{file_folds}'))
-            except:
-                self.split_data(root, filename, opt.folds, opt.global_seed)
-            filename = filename[:-4] + '_folds' + filename[-4:]
 
         super().__init__(opt = opt, filename = filename, root = root)
 
-        
+
     def process(self):
 
         # reads the csv file with smiles of molecules
@@ -48,7 +40,7 @@ class molecular_graph(mol_graph_dataset):
             smarts_list = []
 
             # iterates over the molecules that modulate the target variable
-            for molecule in self.mol_cols:  
+            for molecule in self.mol_cols:
 
                 #create a molecule object from the smiles string
                 smiles = Chem.MolToSmiles(Chem.MolFromSmiles(mols[molecule]), canonical=True)
@@ -56,7 +48,7 @@ class molecular_graph(mol_graph_dataset):
 
                 mol = Chem.MolFromSmiles(smiles)
 
-                node_feats = self._get_node_feats(mol,) 
+                node_feats = self._get_node_feats(mol,)
 
                 edge_attr, edge_index = self._get_edge_features(mol,)
 
@@ -90,29 +82,29 @@ class molecular_graph(mol_graph_dataset):
                         smarts.append(smarts_mol)
                 else:
                     smarts = ''
-            
+
             else:
                 smarts = ''
-            
+
             if self._opt.id_col:
                 id = mols[self._opt.id_col]
             else:
                 id = index
 
-            data = Data(x=node_feats_mols, 
-                        edge_index=edge_index_mols, 
-                        edge_attr=edge_attr_mols, 
+            data = Data(x=node_feats_mols,
+                        edge_index=edge_index_mols,
+                        edge_attr=edge_attr_mols,
                         y=y,
                         smiles = smiles,
                         smarts = smarts,
                         idx = str(id),
-                        ) 
-            
-            torch.save(data, 
-                       os.path.join(self.processed_dir, 
+                        )
+
+            torch.save(data,
+                       os.path.join(self.processed_dir,
                                     f'mol_{index}.pt'))
-            
-    
+
+
 
     def _get_node_feats(self, mol):
 
@@ -120,14 +112,14 @@ class molecular_graph(mol_graph_dataset):
 
         for atom in mol.GetAtoms():
             node_feats = []
-            # Feature 1: Atomic number        
+            # Feature 1: Atomic number
             node_feats += self._one_h_e(atom.GetSymbol(), self._elem_list)
             # Feature 2: Atom degree
             node_feats += self._one_h_e(atom.GetDegree(), [0, 1, 2, 3, 4, 5, 6])
             # Feature 3: Formal Charge
             node_feats += self._one_h_e(atom.GetFormalCharge(), [-1, 0, 1])
             # Feature 4: Chirality
-            node_feats += self._one_h_e(atom.GetChiralTag(), [Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW, 
+            node_feats += self._one_h_e(atom.GetChiralTag(), [Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
                                                               Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
                                                               ],
                                                               Chem.rdchem.ChiralType.CHI_UNSPECIFIED)
@@ -151,13 +143,13 @@ class molecular_graph(mol_graph_dataset):
 
         all_node_feats = np.asarray(all_node_feats, dtype=np.float32)
         return torch.tensor(all_node_feats, dtype=torch.float)
-    
+
 
     def _get_labels(self, label):
         label = np.asarray([label])
         return torch.tensor(label, dtype=torch.float)
-    
-    
+
+
     def _get_edge_features(self, mol):
 
         all_edge_feats = []
@@ -191,7 +183,7 @@ class molecular_graph(mol_graph_dataset):
         edge_indices = edge_indices.t().to(torch.long).view(2, -1)
 
         return torch.tensor(all_edge_feats, dtype=torch.float), edge_indices
-    
+
 
     def _create_folds(num_folds, df):
         """
@@ -223,7 +215,7 @@ class molecular_graph(mol_graph_dataset):
         df['fold'] = fold_column
 
         return df
-    
+
 
     def split_data(self, root, filename, n_folds, random_seed):
 

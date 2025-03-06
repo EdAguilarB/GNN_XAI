@@ -21,70 +21,70 @@ class BaseOptions:
             )
 
         self.parser.add_argument(
-            '--train_GNN', 
+            '--train_GNN',
             type=self.str2bool,
-            nargs='?', 
-            const=True, 
-            default=True, 
+            nargs='?',
+            const=True,
+            default=True,
             help='Whether to train the GNN or not'
             )
-        
+
         self.parser.add_argument(
             '--filename',
             type=str,
-            default='Liver.csv',
+            default='biodegradability.csv',
             help='name of the csv file',
             )
-        
+
         self.parser.add_argument(
             '--root',
             type=str,
-            default='data/datasets/Liver/',
+            default='data/datasets/biodegradability/',
             help='root directory of the dataset',
             )
-        
+
         self.parser.add_argument(
             '--mol_cols',
             type=list,
             default=['smiles'],
             help='Columns containing the SMILES of the molecules',
             )
-        
+
         self.parser.add_argument(
             '--smarts_col',
             type=list,
             default=['smarts'],
             help='Columns containing the SMARTS of the ground truth fragment',
             )
-        
+
         self.parser.add_argument(
             '--target_variable',
             type=str,
             default='label',
             help='Name of the column with the target variable',
             )
-        
+
         self.parser.add_argument(
             '--set_col',
             type=str,
             default='set',
             help='Name of the column with the set information',
             )
-        
+
         self.parser.add_argument(
             '--id_col',
             type=str,
             default='ID',
             help='Column with the id of the molecules',
             )
-        
+
         self.parser.add_argument(
             '--problem_type',
             type=str,
             default='classification',
             help='Type of problem to solve',
             )
-        
+
         self.parser.add_argument(
             '--optimizer',
             type=str,
@@ -92,29 +92,29 @@ class BaseOptions:
             help='Type of optimizer',
             )
 
-        
+
         self.parser.add_argument(
             '--scheduler',
             type=str,
             default='ReduceLROnPlateau',
             help='Type of scheduler',
             )
-        
-        
+
+
         self.parser.add_argument(
             '--network_name',
             type=str,
-            default='GAT',
+            default='graphsage',
             help='Name of the GNN to use',
             )
-        
+
         self.parser.add_argument(
             '--n_classes',
             type=int,
-            default=3,
+            default=2,
             help='Number of classes in the target variable',
             )
-        
+
         self.parser.add_argument(
             '--epochs',
             type=int,
@@ -127,12 +127,33 @@ class BaseOptions:
         ###########################################
 
         self.parser.add_argument(
+            '--XAI_mode',
+            type=str,
+            default='get_importance',
+            help='Mode to run the explainability. Options are: get_importance to get the importance of any molecule, or evaluate: to compare the importance of fragments of the model against the ground truth',
+            )
+
+        self.parser.add_argument(
+            '--XAI_attrs_mode',
+            type=str,
+            default='directional',
+            help='Type of attributions to calculate. Directional will calculate attributions based on the direction of the prediction, absolute will calculate the attributions based on the absolute value of the score',
+            )
+
+        self.parser.add_argument(
+            '--XAI_threshold',
+            type=float,
+            default=0.5,
+            help='Threshold to use for the explainability',
+            )
+
+        self.parser.add_argument(
             '--XAI_algorithm',
             type=str,
             default='all',
             help='Algorithm to use for explainability',
             )
-        
+
 
 
         self.parser.add_argument(
@@ -142,7 +163,7 @@ class BaseOptions:
             help='Seed for the random number generator',
             )
 
-    
+
 
 
 
@@ -155,7 +176,7 @@ class BaseOptions:
         self._opt = self.parser.parse_args()
 
         return self._opt
-    
+
     @staticmethod
     def str2bool(value):
         if isinstance(value, bool):
