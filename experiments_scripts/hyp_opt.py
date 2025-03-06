@@ -57,7 +57,7 @@ def run_tune(opt):
     if opt.filename in basic_datasets:
         num_samples = 50
     else:
-        num_samples = 10
+        num_samples = 30
 
     if opt.network_name == 'GCN':
         GCN_params = all_params + ['improved']
@@ -106,7 +106,7 @@ def run_tune(opt):
 
 
     best_config = result.get_best_config(metric="test_loss", mode="min", scope="last")
-    best_config_df = pd.DataFrame.from_dict(best_config, orient="index") 
+    best_config_df = pd.DataFrame.from_dict(best_config, orient="index")
     best_config_df.to_csv(f"{log_dir}/best_config.csv", header=False)
     all_runs_df = result.results_df
     all_runs_df.to_csv(f"{log_dir}/all_runs.csv", index=False)
