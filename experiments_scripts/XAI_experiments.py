@@ -21,13 +21,15 @@ from utils.XAI_utils import (calculate_attributions, calculate_XAI_metrics,
                              get_smarts_mols)
 
 
-def run_XAI(global_seed,
-            exp_name,
-            filename,
-            network_name,
-            XAI_algorithm,
-            XAI_mode,
-            XAI_attrs_mode,):
+def run_XAI(
+    global_seed,
+    exp_name,
+    filename,
+    network_name,
+    XAI_algorithm,
+    XAI_mode,
+    XAI_attrs_mode,
+):
 
     random.seed(global_seed)
 
@@ -35,16 +37,12 @@ def run_XAI(global_seed,
 
     # Load the dataset and model from experiment
 
-
     exp_dir = exp_path / "results_model"
 
     train_loader = DataLoader(
         torch.load(exp_dir / "train_loader.pth").dataset.shuffle()[:10]
     )
-    test_loader = DataLoader(
-        torch.load(exp_dir / "test_loader.pth").dataset.shuffle()
-    )
-
+    test_loader = DataLoader(torch.load(exp_dir / "test_loader.pth").dataset.shuffle())
 
     log_dir = exp_path / "results_XAI" / XAI_algorithm
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -61,9 +59,16 @@ def run_XAI(global_seed,
     )
 
     # Calculate the best threshold for the test set by using the training set
-    mol_attrs_train, max_min_vals, max_val = get_attrs_atoms(data = data_train, XAI_attrs_mode=XAI_attrs_mode)
+    mol_attrs_train, max_min_vals, max_val = get_attrs_atoms(
+        data=data_train, XAI_attrs_mode=XAI_attrs_mode
+    )
     train_smiles = get_smarts_mols(train_loader, XAI_mode)
-    mol_attrs, _, _ = get_attrs_atoms(data=data_test, XAI_attrs_mode=XAI_attrs_mode, max_min_vals=max_min_vals, max_atom_val=max_val)
+    mol_attrs, _, _ = get_attrs_atoms(
+        data=data_test,
+        XAI_attrs_mode=XAI_attrs_mode,
+        max_min_vals=max_min_vals,
+        max_atom_val=max_val,
+    )
     test_smiles = get_smarts_mols(test_loader, XAI_mode)
 
     if XAI_mode == "evaluate":
@@ -103,7 +108,9 @@ def run_XAI(global_seed,
             XAI_attrs_mode=XAI_attrs_mode,
         )
 
-        create_XAI_report(best_threshold, threshold_results, results_test, log_dir, XAI_attrs_mode)
+        create_XAI_report(
+            best_threshold, threshold_results, results_test, log_dir, XAI_attrs_mode
+        )
 
     find_hot_spots(
         mol_attrs,
@@ -111,7 +118,7 @@ def run_XAI(global_seed,
         XAI_attrs_mode,
         threshold=0.5,
         save_results=True,
-        logdir= log_dir / "find_hot_spots",
+        logdir=log_dir / "find_hot_spots",
     )
 
     find_substructures(
