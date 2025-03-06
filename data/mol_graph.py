@@ -20,22 +20,22 @@ class mol_graph_dataset(Dataset):
         self.mol_cols = opt.mol_cols
         self._root = root
         self._name = "BaseDataset"
-        
+
         super().__init__(root = root)
         self.set = pd.read_csv(self.raw_paths[0])[opt.set_col]
         self.y = pd.read_csv(self.raw_paths[0])[opt.target_variable]
-        
+
 
     @property
     def raw_file_names(self):
         return self.filename
-    
+
     @property
     def processed_file_names(self):
         self.data = pd.read_csv(self.raw_paths[0]).reset_index()
         molecules = [f'mol_{i}.pt' for i in list(self.data.index)]
         return molecules
-    
+
     @property
     def _elem_list(self):
         elements = [
@@ -61,20 +61,20 @@ class mol_graph_dataset(Dataset):
             'I',  # Iodine (53)
         ]
         return elements
-        
-    
+
+
     def download(self):
         raise NotImplementedError
 
     def process(self):
         raise NotImplementedError
-    
+
     def _get_node_feats(self):
         raise NotImplementedError
-    
+
     def _get_edge_features(self):
         raise NotImplementedError
-    
+
     def _print_dataset_info(self) -> None:
         """
         Prints the dataset info
@@ -83,13 +83,13 @@ class mol_graph_dataset(Dataset):
 
     def len(self):
         return len(self.processed_file_names)
-    
+
     def get(self, idx):
 
-        molecule = torch.load(os.path.join(self.processed_dir, 
-                                f'mol_{idx}.pt')) 
+        molecule = torch.load(os.path.join(self.processed_dir,
+                                f'mol_{idx}.pt'))
         return molecule
-    
+
     def _get_atom_chirality(self, CIP_dict, atom_idx):
         try:
             chirality = CIP_dict[atom_idx]
@@ -97,7 +97,7 @@ class mol_graph_dataset(Dataset):
             chirality = 'No_Stereo_Center'
 
         return chirality
-    
+
     def _one_h_e(self, x, allowable_set, ok_set=None):
 
         if x not in allowable_set:
